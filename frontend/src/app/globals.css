@@ -1,0 +1,149 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  --c-gold: #FFC067;
+  --navy-main: #0A1128;
+  --navy-card: #0F172A;
+  --navy-border: rgba(255, 255, 255, 0.1);
+}
+
+body {
+  background-color: #0A1128;
+  color: #f1f5f9;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(255, 192, 103, 0.05) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(0, 180, 216, 0.05) 0px, transparent 50%),
+    radial-gradient(at 50% 100%, rgba(10, 17, 40, 0.7) 0px, transparent 50%);
+  background-attachment: fixed;
+}
+
+/* Glassmorphism utilities inspired by localhost:3008 */
+.glass-panel {
+  background-color: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1rem;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.glass-panel-hover {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-panel-hover:hover {
+  background-color: rgba(15, 23, 42, 0.95);
+  border-color: rgba(255, 192, 103, 0.35);
+  box-shadow: 0 12px 32px 0 rgba(0, 0, 0, 0.8), 0 0 20px 0 rgba(255, 192, 103, 0.08);
+}
+
+/* KPI Card luxury style */
+.kpi-card {
+  border-radius: 1rem;
+  background-color: rgba(15, 23, 42, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  padding: 1.25rem;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+  position: relative;
+  overflow: hidden;
+  transition: all 0.25s ease;
+}
+
+.kpi-card:hover {
+  border-color: rgba(255, 192, 103, 0.35);
+  transform: translateY(-2px);
+  box-shadow: 0 15px 35px -5px rgba(0, 0, 0, 0.7);
+}
+
+/* Roman & Baroque Luxury Theme */
+.roman-gold-frame {
+  position: relative;
+  background: radial-gradient(ellipse at 50% 0%, rgba(15, 23, 42, 0.96) 0%, rgba(7, 11, 25, 0.98) 100%);
+  border: 1.5px solid rgba(245, 158, 11, 0.5);
+  box-shadow: 
+    0 0 0 1px rgba(120, 53, 15, 0.4),
+    0 12px 40px -10px rgba(0, 0, 0, 0.85),
+    inset 0 1px 2px 0 rgba(254, 243, 199, 0.25);
+}
+
+.roman-gold-card {
+  position: relative;
+  background: radial-gradient(ellipse at 50% -20%, rgba(30, 41, 59, 0.6) 0%, rgba(11, 19, 43, 0.88) 100%);
+  border: 1.5px solid rgba(245, 158, 11, 0.55);
+  border-radius: 1rem;
+  box-shadow: 
+    0 4px 20px -2px rgba(0, 0, 0, 0.6),
+    0 0 15px -3px rgba(245, 158, 11, 0.18),
+    inset 0 0 12px rgba(245, 158, 11, 0.08);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.roman-gold-card::before {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  border: 1px solid rgba(254, 243, 199, 0.12);
+  border-radius: calc(1rem - 2px);
+  pointer-events: none;
+}
+
+.roman-gold-card:hover {
+  border-color: rgba(251, 191, 36, 0.9);
+  transform: translateY(-2px);
+  box-shadow: 
+    0 8px 30px -4px rgba(0, 0, 0, 0.8),
+    0 0 25px 2px rgba(245, 158, 11, 0.35),
+    inset 0 0 16px rgba(245, 158, 11, 0.15);
+}
+
+/* Sleek scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: #0A1128;
+}
+::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #FFC067;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}
+
+/* Toast Notification Keyframes */
+@keyframes slideDownFade {
+  0% {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes shrinkToastProgress {
+  0% {
+    width: 100%;
+  }
+  100% {
+    width: 0%;
+  }
+}
+
+.animate-toast-in {
+  animation: slideDownFade 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}

@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Production builds
+.next/
+dist/
+out/
+build/
+*.tsbuildinfo
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# Editor and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local Database data
+.postgres-data/
+*.sqlite
+*.db
+
+# Tools & Temporary Executables
+tools/
+scratch/
+tmp/
+*.exe

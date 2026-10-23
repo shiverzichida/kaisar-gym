@@ -1,0 +1,21 @@
+{
+  "name": "kaisar-gym-ecosystem",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sistem Manajemen Gym, POS, Backoffice, Portal Member & Portal Trainer - Kaisar Gym",
+  "scripts": {
+    "db:start": "node scripts/start-db.js",
+    "dev:backend": "npm --prefix backend run start:dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "dev:portal": "npm --prefix portal run dev",
+    "build:backend": "npm --prefix backend run build",
+    "build:frontend": "npm --prefix frontend run build",
+    "build:portal": "npm --prefix portal run build",
+    "start:portal": "npm --prefix portal run start",
+    "seed": "npm --prefix backend run prisma:seed"
+  },
+  "dependencies": {
+    "@embedded-postgres/windows-x64": "^18.4.0-beta.17",
+    "embedded-postgres": "^18.4.0-beta.17"
+  }
+}

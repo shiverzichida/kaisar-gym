@@ -1,0 +1,440 @@
+generator client {
+  provider   = "prisma-client-js"
+  engineType = "binary"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  passwordHash String
+  fullName     String
+  email        String?
+  phone        String?
+  role         String   // SUPER_ADMIN, OPS_MANAGER, STUDIO_MANAGER, CASHIER, MARKETING, TRAINER, MEMBER
+  memberId     String?  @unique
+  trainerId    String?  @unique
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Member {
+  id                String               @id @default(uuid())
+  memberCode        String               @unique // e.g., KG-2026-0001
+  nik               String?
+  fullName          String
+  phone             String
+  email             String?
+  address           String?
+  rtRw              String?
+  kecamatan         String?
+  birthDate         DateTime?
+  gender            String               @default("L") // L / P
+  facePhotoUrl      String?
+  ktpPhotoUrl       String?
+  stnkPhotoUrl      String?
+  plateNumber       String?
+  parkingActive     Boolean              @default(false)
+  status            String               @default("INACTIVE") // ACTIVE, INACTIVE, CUTI, BLACKLIST
+  groupMembershipId String?
+  isGroupPic        Boolean              @default(false)
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  groupMembership   GroupMembership?     @relation(fields: [groupMembershipId], references: [id])
+  subscriptions     MemberSubscription[]
+  leaves            MemberLeave[]
+  ptContracts       MemberPtContract[]
+  ptSessionLogs     PtSessionLog[]
+  classBookings     ClassBooking[]
+  attendances       MemberAttendance[]
+  transactions      PosTransaction[]
+}
+
+model MembershipPackage {
+  id           String               @id @default(uuid())
+  code         String               @unique
+  name         String
+  category     String               // REGULAR, GYM_STUDIO, STUDENT, CORPORATE, VIP, DAY_PASS
+  durationDays Int
+  normalPrice  Float
+  promoPrice   Float?
+  description  String?
+  isActive     Boolean              @default(true)
+  createdAt    DateTime             @default(now())
+
+  subscriptions MemberSubscription[]
+  groups        GroupMembership[]
+}
+
+model MemberSubscription {
+  id          String            @id @default(uuid())
+  memberId    String
+  packageId   String
+  startDate   DateTime
+  endDate     DateTime
+  status      String            @default("ACTIVE") // ACTIVE, EXPIRED, FROZEN
+  notes       String?
+  invoiceRef  String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  member      Member            @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  package     MembershipPackage @relation(fields: [packageId], references: [id])
+  leaves      MemberLeave[]
+}
+
+model MemberLeave {
+  id             String             @id @default(uuid())
+  memberId       String
+  subscriptionId String
+  leaveType      String             // SCHEDULED, UNLIMITED_FREEZE
+  startDate      DateTime
+  endDate        DateTime?
+  daysAdded      Int                @default(0)
+  status         String             @default("ACTIVE") // ACTIVE, COMPLETED, CANCELLED
+  reason         String?
+  approvedBy     String?
+  createdAt      DateTime           @default(now())
+
+  member         Member             @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  subscription   MemberSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+}
+
+model GroupMembership {
+  id          String             @id @default(uuid())
+  code        String             @unique
+  name        String
+  groupType   String             // CORPORATE, COMMUNITY, FAMILY_DUO
+  maxSlots    Int
+  picMemberId String?
+  packageId   String?
+  startDate   DateTime?
+  endDate     DateTime?
+  status      String             @default("INACTIVE") // ACTIVE, INACTIVE
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  package     MembershipPackage? @relation(fields: [packageId], references: [id])
+  members     Member[]
+}
+
+model Product {
+  id            String     @id @default(uuid())
+  sku           String     @unique
+  name          String
+  category      String     // SUPPLEMENT, BEVERAGE, MERCHANDISE, HEALTH_FOOD, SERVICE
+  costPrice     Float
+  sellingPrice  Float
+  stock         Int        @default(0)
+  minStockAlert Int        @default(5)
+  isActive      Boolean    @default(true)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  stockLogs     StockLog[]
+}
+
+model StockLog {
+  id         String   @id @default(uuid())
+  productId  String
+  changeQty  Int
+  finalStock Int
+  type       String   // SALE, RESTOCK, OPNAME, VOID
+  notes      String?
+  recordedBy String?
+  createdAt  DateTime @default(now())
+
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model Trainer {
+  id                 String                  @id @default(uuid())
+  code               String                  @unique
+  fullName           String
+  specialization     String
+  trainerType        String                  // FULL_TIME, FREELANCE, PILATES_INSTRUCTOR
+  phone              String
+  photoUrl           String?
+  tier1Rate          Float                   @default(75000)  // 1-20 sessions
+  tier2Rate          Float                   @default(95000)  // 21-40 sessions
+  tier3Rate          Float                   @default(120000) // >40 sessions
+  salesCommissionPct Float                   @default(5)
+  isActive           Boolean                 @default(true)
+  createdAt          DateTime                @default(now())
+
+  ptContracts        MemberPtContract[]
+  ptSessionLogs      PtSessionLog[]
+  salaryRequests     SalaryRequest[]
+  scheduleTemplates  ClassScheduleTemplate[]
+  classSchedules     ClassSchedule[]
+}
+
+model PtPackage {
+  id           String             @id @default(uuid())
+  code         String             @unique
+  name         String
+  sessionCount Int                // 4, 8, 12, 24, 36, 50
+  validityDays Int                // 30, 60, 90, 180
+  price        Float
+  isActive     Boolean            @default(true)
+  createdAt    DateTime           @default(now())
+
+  contracts    MemberPtContract[]
+}
+
+model MemberPtContract {
+  id                String         @id @default(uuid())
+  memberId          String
+  trainerId         String
+  ptPackageId       String
+  totalSessions     Int
+  remainingSessions Int
+  normalPrice       Float          @default(0)
+  discountPct       Float          @default(0)
+  totalPrice        Float          @default(0)
+  invoiceRef        String?
+  notes             String?
+  startDate         DateTime
+  expiryDate        DateTime
+  status            String         @default("ACTIVE") // ACTIVE, COMPLETED, EXPIRED, TRANSFERRED
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  member            Member         @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  trainer           Trainer        @relation(fields: [trainerId], references: [id])
+  ptPackage         PtPackage      @relation(fields: [ptPackageId], references: [id])
+  sessionLogs       PtSessionLog[]
+}
+
+model PtSessionLog {
+  id               String           @id @default(uuid())
+  contractId       String
+  memberId         String
+  trainerId        String
+  sessionDate      DateTime         @default(now())
+  musclesTrained   String           // e.g. Chest, Triceps, Core
+  weightLiftedNote String?          // e.g. Bench Press 80kg x 8
+  evaluationNote   String?
+  signedOffBy      String?
+  createdAt        DateTime         @default(now())
+
+  contract         MemberPtContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  member           Member           @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  trainer          Trainer          @relation(fields: [trainerId], references: [id])
+}
+
+model SalaryRequest {
+  id                String   @id @default(uuid())
+  trainerId         String
+  monthYear         String   // e.g., 2026-10
+  completedSessions Int
+  sessionCommission Float
+  salesCommission   Float
+  totalAmount       Float
+  status            String   @default("PENDING") // PENDING, APPROVED_MANAGER, PAID, REJECTED
+  notes             String?
+  approvedBy        String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  trainer           Trainer  @relation(fields: [trainerId], references: [id])
+}
+
+model StudioClass {
+  id          String                  @id @default(uuid())
+  code        String                  @unique
+  name        String
+  category    String                  // ZUMBA, YOGA, AEROBIC, BODY_COMBAT, PILATES_REFORMER, SPINNING
+  roomName    String
+  maxCapacity Int                     @default(20)
+  isPaid      Boolean                 @default(false)
+  price       Float                   @default(0)
+  isActive    Boolean                 @default(true)
+  createdAt   DateTime                @default(now())
+
+  templates   ClassScheduleTemplate[]
+  schedules   ClassSchedule[]
+}
+
+model ClassScheduleTemplate {
+  id            String      @id @default(uuid())
+  studioClassId String
+  trainerId     String
+  dayOfWeek     Int         // 1=Senin ... 7=Minggu
+  startTime     String      // e.g., "18:30"
+  endTime       String      // e.g., "19:30"
+  isActive      Boolean     @default(true)
+
+  studioClass   StudioClass @relation(fields: [studioClassId], references: [id])
+  trainer       Trainer     @relation(fields: [trainerId], references: [id])
+}
+
+model ClassSchedule {
+  id            String         @id @default(uuid())
+  studioClassId String
+  trainerId     String
+  scheduleDate  DateTime
+  startTime     String
+  endTime       String
+  maxCapacity   Int
+  bookedCount   Int            @default(0)
+  status        String         @default("OPEN") // OPEN, FULL, COMPLETED, CANCELLED
+  createdAt     DateTime       @default(now())
+
+  studioClass   StudioClass    @relation(fields: [studioClassId], references: [id])
+  trainer       Trainer        @relation(fields: [trainerId], references: [id])
+  bookings      ClassBooking[]
+}
+
+model ClassBooking {
+  id         String        @id @default(uuid())
+  scheduleId String
+  memberId   String
+  status     String        @default("BOOKED") // BOOKED, ATTENDED, CANCELLED, ABSENT
+  bookedAt   DateTime      @default(now())
+  attendedAt DateTime?
+
+  schedule   ClassSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  member     Member        @relation(fields: [memberId], references: [id], onDelete: Cascade)
+}
+
+model PosTransaction {
+  id             String               @id @default(uuid())
+  invoiceNumber  String               @unique // INV-YYYYMMDD-XXXX
+  memberId       String?
+  guestName      String?
+  cashierName    String
+  salesPerson    String?
+  shiftId        String?
+  subtotal       Float
+  discountAmount Float                @default(0)
+  promoCode      String?
+  grandTotal     Float
+  paymentMethod  String               // CASH, EDC_BCA, EDC_MANDIRI, EDC_BRI, EDC_BNI, QRIS, SPLIT, PARTIAL, MIDTRANS
+  cashAmount     Float                @default(0)
+  nonCashAmount  Float                @default(0)
+  changeAmount   Float                @default(0)
+  paymentRef     String?
+  paymentStatus  String               @default("PAID") // PAID, PARTIAL, PENDING, VOID
+  voidReason     String?
+  voidedBy       String?
+  createdAt      DateTime             @default(now())
+
+  member         Member?              @relation(fields: [memberId], references: [id])
+  shift          CashierShift?        @relation(fields: [shiftId], references: [id])
+  items          PosTransactionItem[]
+}
+
+model PosTransactionItem {
+  id            String         @id @default(uuid())
+  transactionId String
+  itemType      String         // MEMBERSHIP, PT_PACKAGE, RETAIL_PRODUCT, SERVICE_FEE, DAILY_PASS
+  itemId        String?
+  itemName      String
+  qty           Int            @default(1)
+  unitPrice     Float
+  totalPrice    Float
+  trainerId     String?        // Optional trainer assignment for PT package
+
+  transaction   PosTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+}
+
+model CashierShift {
+  id                 String           @id @default(uuid())
+  cashierName        String
+  startTime          DateTime         @default(now())
+  endTime            DateTime?
+  startingCashFloat  Float            @default(500000)
+  totalCashIn        Float            @default(0)
+  totalEdcIn         Float            @default(0)
+  totalQrisIn        Float            @default(0)
+  totalExpenseOut    Float            @default(0)
+  expectedEndingCash Float            @default(500000)
+  actualEndingCash   Float?
+  status             String           @default("OPEN") // OPEN, CLOSED
+  notes              String?
+
+  transactions       PosTransaction[]
+  expenses           Expense[]
+}
+
+model Expense {
+  id          String        @id @default(uuid())
+  shiftId     String?
+  category    String        // UTILITAS, KEBERSIHAN, MAINTENANCE_ALAT, LAUNDRY, ATK_LAINNYA
+  description String
+  amount      Float
+  receiptUrl  String?
+  recordedBy  String
+  createdAt   DateTime      @default(now())
+
+  shift       CashierShift? @relation(fields: [shiftId], references: [id])
+}
+
+model MemberAttendance {
+  id           String   @id @default(uuid())
+  memberId     String
+  checkInTime  DateTime @default(now())
+  method       String   @default("QR_SCAN") // QR_SCAN, MANUAL_CODE, TURNSTILE_FACE
+  gateStatus   String   @default("ALLOWED") // ALLOWED, DENIED
+  denialReason String?
+
+  member       Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+}
+
+model StaffAttendance {
+  id               String   @id @default(uuid())
+  staffName        String
+  role             String
+  type             String   // CLOCK_IN, CLOCK_OUT
+  selfiePhotoUrl   String?
+  latitude         Float
+  longitude        Float
+  distanceMeters   Float
+  isWithinGeofence Boolean
+  isMockLocation   Boolean  @default(false)
+  createdAt        DateTime @default(now())
+}
+
+model PromoVoucher {
+  id            String    @id @default(uuid())
+  code          String    @unique
+  description   String
+  discountType  String    // PERCENTAGE, FIXED
+  discountValue Float
+  minPurchase   Float     @default(0)
+  maxQuota      Int       @default(100)
+  usedCount     Int       @default(0)
+  validUntil    DateTime?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+}
+
+model Announcement {
+  id        String   @id @default(uuid())
+  title     String
+  content   String
+  category  String   @default("PROMO") // PROMO, HOLIDAY, INFO
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  userName   String
+  userRole   String
+  action     String   // INSERT, UPDATE, DELETE, VOID, LEAVE_ADD, GROUP_ACTIVATE, LOGIN
+  entityName String
+  entityId   String?
+  ipAddress  String?
+  beforeJson Json?
+  afterJson  Json?
+  createdAt  DateTime @default(now())
+}

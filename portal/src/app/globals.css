@@ -1,0 +1,123 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  --c-gold: #FFC067;
+  --navy-main: #070D1E;
+  --navy-card: #0F172A;
+  --navy-border: rgba(255, 255, 255, 0.1);
+}
+
+body {
+  background-color: #070D1E;
+  color: #F8FAFC;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(255, 192, 103, 0.08) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(14, 165, 233, 0.06) 0px, transparent 50%),
+    radial-gradient(at 50% 100%, rgba(7, 13, 30, 0.8) 0px, transparent 50%);
+  background-attachment: fixed;
+}
+
+/* Glassmorphism card utilities */
+.glass-panel {
+  background-color: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1.25rem;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.glass-panel-hover {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-panel-hover:hover {
+  background-color: rgba(15, 23, 42, 0.95);
+  border-color: rgba(255, 192, 103, 0.35);
+  box-shadow: 0 12px 32px 0 rgba(0, 0, 0, 0.8), 0 0 20px 0 rgba(255, 192, 103, 0.1);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #070D1E;
+}
+::-webkit-scrollbar-thumb {
+  background: #1E293B;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
+
+/* ══════════════ SHINE / LIGHT SWEEP EFFECT (KILAP EMAS MEWAH) ══════════════ */
+@keyframes heroShine {
+  0% {
+    opacity: 0;
+    transform: translateX(-160%) skewX(-14deg);
+  }
+  20% {
+    opacity: 0.95;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(160%) skewX(-14deg);
+  }
+}
+
+.shine-overlay {
+  position: absolute;
+  inset: -15% -25%;
+  background: linear-gradient(
+    115deg,
+    rgba(255, 255, 255, 0) 30%,
+    rgba(255, 255, 255, 0.15) 42%,
+    rgba(255, 216, 114, 0.45) 50%,
+    rgba(255, 255, 255, 0.18) 58%,
+    rgba(255, 255, 255, 0) 70%
+  );
+  mix-blend-mode: screen;
+  pointer-events: none;
+  animation: heroShine 3.6s cubic-bezier(0.23, 1, 0.32, 1) infinite;
+}
+
+/* Slower ambient shine for cards */
+.shine-ambient {
+  animation: heroShine 5.2s cubic-bezier(0.23, 1, 0.32, 1) 1.5s infinite;
+}
+
+/* Hover-only shine effect */
+.hover-shine {
+  position: relative;
+  overflow: hidden;
+}
+.hover-shine::after {
+  content: "";
+  position: absolute;
+  inset: -20% -40%;
+  background: linear-gradient(
+    115deg,
+    rgba(255, 255, 255, 0) 35%,
+    rgba(255, 255, 255, 0.25) 46%,
+    rgba(255, 216, 114, 0.5) 50%,
+    rgba(255, 255, 255, 0.25) 54%,
+    rgba(255, 255, 255, 0) 65%
+  );
+  mix-blend-mode: screen;
+  opacity: 0;
+  transform: translateX(-160%) skewX(-14deg);
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+.hover-shine:hover::after {
+  opacity: 1;
+  animation: heroShine 1.8s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+}
