@@ -36,8 +36,8 @@ Kami menyediakan 3 tingkatan paket yang dapat disesuaikan dengan kebutuhan dan s
 │  [PAKET 2] STANDAR PROFESSIONAL : Rp 25.000.000                                   │
 │  Sistem operasional lengkap + Portal Web + Manajemen Komisi Trainer               │
 ├───────────────────────────────────────────────────────────────────────────────────┤
-│  [PAKET 3] EXECUTIVE SMART GYM  : Rp 30.000.000  ★ [REKOMENDASI TERBAIK UNTUK OWNER]│
-│  Kendali penuh bisnis di HP Owner, Mobile Live Dashboard & Garansi 4 Bulan         │
+│  [PAKET 3] EXECUTIVE SMART GYM  : Rp 27.000.000  ★ [REKOMENDASI TERBAIK UNTUK OWNER]│
+│  Kendali penuh bisnis di HP Owner, Mobile Live Dashboard, Inc. Domain kaisargym.com & Server 1 Tahun │
 └───────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -88,7 +88,7 @@ Kami menyediakan 3 tingkatan paket yang dapat disesuaikan dengan kebutuhan dan s
 
 ---
 
-### C. RINCIAN PAKET 3: EXECUTIVE SMART GYM (Rp 30.000.000) ★
+### C. RINCIAN PAKET 3: EXECUTIVE SMART GYM (Rp 27.000.000) ★
 *Dirancang khusus untuk kenyamanan dan ketenangan pikiran Owner. Memberikan kontrol penuh atas operasional gym secara real-time dari layar smartphone tanpa perlu standby di tempat.*
 
 * **Semua Fitur Paket Standar, Ditambah Fitur Eksklusif Owner:**
@@ -98,6 +98,9 @@ Kami menyediakan 3 tingkatan paket yang dapat disesuaikan dengan kebutuhan dan s
   * **Shift & Cash Drawer Monitor:** Pantau estimasi uang fisik di laci kasir saat kasir bertugas secara live.
 * 📊 **Trainer & Sales Leaderboard:**
   * Statistik otomatis performa trainer terlaris (*Top Performance Coach*) dan retensi member (member aktif vs member tidak aktif).
+* 🌐 **Infrastruktur & Domain Resmi (Include 1 Tahun):**
+  * **Gratis Domain resmi `kaisargym.com`** selama 1 tahun penuh.
+  * **Dedicated Cloud Server VPS berkecepatan tinggi** selama 1 tahun penuh tanpa biaya tambahan.
 * 👑 **Layanan Prioritas & Pendampingan:**
   * Free Maintenance & Penyesuaian Fitur minor selama **4 Bulan Penuh**.
   * Jalur prioritas respon cepat jika terjadi kendala teknis.
@@ -106,12 +109,13 @@ Kami menyediakan 3 tingkatan paket yang dapat disesuaikan dengan kebutuhan dan s
 
 ## 3. TABEL PERBANDINGAN FITUR LENGKAP
 
-| Fitur / Modul | Paket Basic (20 Juta) | Paket Standar (25 Juta) | Paket Executive (30 Juta) |
+| Fitur / Modul | Paket Basic (20 Juta) | Paket Standar (25 Juta) | Paket Executive (27 Juta) ★ |
 | :--- | :---: | :---: | :---: |
 | **Sistem Kasir POS & Cetak Struk** | ✅ Tersedia | ✅ Tersedia | ✅ Tersedia |
 | **Integrasi 2-Channel Face ID Gate** | ✅ Tersedia | ✅ Tersedia | ✅ Tersedia |
 | **Auto-Block Member Expired di Gate** | ✅ Tersedia | ✅ Tersedia | ✅ Tersedia |
 | **Official Web Portal (`kaisargym.com`)** | Sederhana | ✅ Lengkap | ✅ Lengkap |
+| **Domain `kaisargym.com` & Cloud Server 1 Tahun** | Biaya Standar | ✅ Include 1 Tahun | ✅ **Include 1 Tahun (High-Speed)** |
 | **Portal Khusus Personal Trainer (Cek Sesi di HP)** | ❌ | ✅ Tersedia | ✅ Tersedia |
 | **Kalkulasi Komisi PT Otomatis (Tetap vs Freelance)** | ❌ | ✅ Tersedia | ✅ Tersedia |
 | **Portal Member (Cek Masa Aktif dari HP)** | ❌ | ✅ Tersedia | ✅ Tersedia |

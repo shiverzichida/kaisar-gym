@@ -373,7 +373,7 @@ def generate_kaisar_gym_proposal(output_path, base_template_path=None):
     data_summary = [
         ("PAKET 1: BASIC FITUR", "Rp 20.000.000", "Solusi meja kasir, penjualan, dan akses pintu gate otomatis."),
         ("PAKET 2: STANDAR PROFESSIONAL", "Rp 25.000.000", "Sistem operasional lengkap + Portal Web + Manajemen Komisi Trainer."),
-        ("PAKET 3: EXECUTIVE SMART GYM\n★ REKOMENDASI TERBAIK", "Rp 30.000.000", "Kendali bisnis di HP Owner, Mobile Live Dashboard & Garansi 4 Bulan.")
+        ("PAKET 3: EXECUTIVE SMART GYM\n★ REKOMENDASI TERBAIK", "Rp 27.000.000", "Kendali bisnis di HP Owner, Mobile Live Dashboard, Garansi 4 Bulan, Inc. Domain kaisargym.com & Dedicated Server 1 Tahun.")
     ]
 
     for row_idx, data in enumerate(data_summary, start=1):
@@ -465,7 +465,7 @@ def generate_kaisar_gym_proposal(output_path, base_template_path=None):
     add_bullet(1, "Garansi Sistem: ", "Masa garansi dan pendampingan teknis selama 3 (tiga) Bulan.")
 
     # C. Rincian Paket 3
-    add_h2("C. RINCIAN PAKET 3: EXECUTIVE SMART GYM - Rp 30.000.000 ★", is_executive=True)
+    add_h2("C. RINCIAN PAKET 3: EXECUTIVE SMART GYM - Rp 27.000.000 ★", is_executive=True)
     p = doc.add_paragraph()
     p.paragraph_format.space_after = Pt(4)
     r_it = p.add_run("Rekomendasi Utama: Memberikan kendali penuh dan kenyamanan bagi Owner untuk memantau operasional gym secara real-time dari mana saja melalui smartphone tanpa harus selalu berada di lokasi.")
@@ -485,6 +485,9 @@ def generate_kaisar_gym_proposal(output_path, base_template_path=None):
 
     add_bullet(0, "📊 Trainer & Sales Leaderboard:")
     add_bullet(1, "Peringkat Coach & Retensi: ", "Statistik otomatis performa pelatih terlaris (Top Performance Coach), produktivitas sales, serta persentase retensi member aktif.")
+
+    add_bullet(0, "🌐 Infrastruktur Lengkap & Domain Resmi:")
+    add_bullet(1, "Include Domain kaisargym.com & Server Cloud (1 Tahun): ", "Sudah termasuk biaya pendaftaran/perpanjangan domain resmi kaisargym.com dan dedicated cloud server performa tinggi selama 1 (satu) tahun penuh tanpa biaya tambahan.")
 
     add_bullet(0, "👑 Layanan Prioritas & Pendampingan:")
     add_bullet(1, "Garansi 4 Bulan Penuh: ", "Free maintenance, pendampingan teknis, dan penyesuaian minor selama 4 (empat) Bulan.")
@@ -566,7 +569,7 @@ def generate_kaisar_gym_proposal(output_path, base_template_path=None):
         "Tabel berikut merangkum matriks perbandingan fitur antara ketiga paket investasi sistem:"
     )
 
-    feature_table = doc.add_table(rows=11, cols=4)
+    feature_table = doc.add_table(rows=12, cols=4)
     feature_table.alignment = WD_TABLE_ALIGNMENT.CENTER
     feature_table.autofit = False
     feature_table.columns[0].width = Inches(2.65)
@@ -574,7 +577,7 @@ def generate_kaisar_gym_proposal(output_path, base_template_path=None):
     feature_table.columns[2].width = Inches(1.25)
     feature_table.columns[3].width = Inches(1.42)
 
-    col_headers = ["FITUR & MODUL SISTEM", "PAKET BASIC\n(Rp 20 Jt)", "PAKET STANDAR\n(Rp 25 Jt)", "PAKET EXECUTIVE\n(Rp 30 Jt) ★"]
+    col_headers = ["FITUR & MODUL SISTEM", "PAKET BASIC\n(Rp 20 Jt)", "PAKET STANDAR\n(Rp 25 Jt)", "PAKET EXECUTIVE\n(Rp 27 Jt) ★"]
     for i, h in enumerate(col_headers):
         cell = feature_table.cell(0, i)
         set_cell_shading(cell, C_NAVY_HEX)
@@ -594,6 +597,7 @@ def generate_kaisar_gym_proposal(output_path, base_template_path=None):
         ("Integrasi 2-Channel Face ID Turnstile Gate", "Tersedia", "Tersedia", "Tersedia"),
         ("Auto-Block Member Expired di Pintu Masuk", "Tersedia", "Tersedia", "Tersedia"),
         ("Official Web Portal (kaisargym.com)", "Sederhana", "Lengkap", "Lengkap"),
+        ("Domain kaisargym.com & Server Cloud 1 Tahun", "Standar", "Include 1 Thn", "Include 1 Thn (High-Speed)"),
         ("Portal Personal Trainer (Cek Sesi di HP/Tablet)", "Tidak Ada", "Tersedia", "Tersedia"),
         ("Kalkulasi Komisi PT Otomatis (Tetap vs Freelance)", "Tidak Ada", "Tersedia", "Tersedia"),
         ("Portal Mandiri Member (Cek Masa Aktif dari HP)", "Tidak Ada", "Tersedia", "Tersedia"),
@@ -704,7 +708,7 @@ def generate_kaisar_gym_proposal(output_path, base_template_path=None):
     p_opt.paragraph_format.left_indent = Inches(0.2)
     p_opt.add_run("[   ]  PAKET 1: BASIC FITUR (Rp 20.000.000,-)\n").bold = True
     p_opt.add_run("[   ]  PAKET 2: STANDAR PROFESSIONAL (Rp 25.000.000,-)\n").bold = True
-    r_opt3 = p_opt.add_run("[   ]  PAKET 3: EXECUTIVE SMART GYM (Rp 30.000.000,-) ★ Rekomendasi Utama")
+    r_opt3 = p_opt.add_run("[   ]  PAKET 3: EXECUTIVE SMART GYM (Rp 27.000.000,-) ★ Rekomendasi Utama (Include Domain & Server 1 Tahun)")
     r_opt3.bold = True
     r_opt3.font.color.rgb = C_GOLD
 
