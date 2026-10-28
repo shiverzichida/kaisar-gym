@@ -3,7 +3,7 @@ import './globals.css';
 import { PortalAuthProvider } from '@/context/PortalAuthContext';
 
 export const metadata: Metadata = {
-  title: 'KAISAR GYM — The Ultimate Luxury Fitness Experience in Pontianak',
+  title: 'Kaisar Gym Pontianak — Luxury Fitness & Wellness',
   description: 'Website Resmi & Portal Member / Personal Trainer Kaisar Gym Pontianak. Pilates Reformer, Studio Classes, Olympic Lifting, & Dedicated Coaching.',
   icons: {
     icon: '/assets/img/kaisar-gym-logo-circle.png',
