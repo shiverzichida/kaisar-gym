@@ -3,13 +3,13 @@ import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ExpressAdapter } from '@nestjs/platform-express';
 import { INestApplication } from '@nestjs/common';
-import express from 'express';
+const expressLib = require('express');
 
 let cachedApp: INestApplication;
 
 export async function bootstrapServer(): Promise<INestApplication> {
   if (!cachedApp) {
-    const expressApp = express();
+    const expressApp = typeof expressLib === 'function' ? expressLib() : (expressLib.default ? expressLib.default() : expressLib);
     const app = await NestFactory.create(AppModule, new ExpressAdapter(expressApp));
 
     app.enableCors({

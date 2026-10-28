@@ -36,5 +36,21 @@
     "status": "COMPLETED",
     "completedAt": "2026-10-28T08:12:00.000Z",
     "summary": "Perbaikan anti-slop berhasil diimplementasikan: kalkulator interaktif, spesifikasi alat komersial nyata, penggantian fake counters, pembersihan link localhost, dan visual QA screenshot telah dikirimkan ke Telegram."
+  },
+  {
+    "id": "TASK-3002",
+    "text": "Cek beberapa fitur di pos, portal member dan portal trainer, ada gak yang belum terkoneksi?",
+    "createdAt": "2026-10-28T09:24:03.002Z",
+    "status": "COMPLETED",
+    "completedAt": "2026-10-28T09:34:00.000Z",
+    "summary": "Audit menyeluruh POS, Portal Member, dan Portal Coach selesai dilakukan. Semua core flow (POS Checkout, Member Booking, Coach Sign-off & Komisi) 100% terkoneksi ke Supabase. Ditemukan 3 fitur pendukung yang masih bersifat mock/local (InBody Scan, Ulasan Rating Coach, & Janji Temu Kalender PT)."
+  },
+  {
+    "id": "TASK-8146",
+    "text": "Coba simulasi kan buat jadwal kelas, member booking kelas, trainer cek kehadiran kelas",
+    "createdAt": "2026-10-28T09:57:28.146Z",
+    "status": "COMPLETED",
+    "completedAt": "2026-10-28T10:03:00.000Z",
+    "summary": "Simulasi 3 tahap sukses dieksekusi di database Supabase: (1) Buat jadwal Zumba Burn Party 18:30 WIB, (2) Member Vivian Lie booking kelas mandiri via Portal Member, (3) Coach Hendra verifikasi presensi ATTENDED. Tiga screenshot visual dikirimkan ke Telegram."
   }
 ]
