@@ -110,7 +110,7 @@ function getMainKeyboard() {
         [{ text: '📊 Status Sistem' }, { text: '🧪 QA Health Check' }],
         [{ text: '📸 Screenshot Portal' }, { text: '📸 Screenshot POS' }],
         [{ text: '🚀 Auto Deploy Git' }, { text: '📋 List Task Agent' }],
-        [{ text: '❓ Bantuan & Perintah' }],
+        [{ text: '👥 Tim 6-Agent SOP' }, { text: '❓ Bantuan & Perintah' }],
       ],
       resize_keyboard: true,
       persistent: true,
@@ -301,16 +301,51 @@ async function handleAddTask(chatId, taskText) {
 
   await sendMessage(
     chatId,
-    `⚡ *Tugas Diterima & Langsung Dieksekusi Otomatis!* 🤖\n\n` +
+    `⚡ *Tugas Masuk ke 6-Agent Engineering Pipeline!* 🤖\n\n` +
     `🆔 *ID:* \`${newTask.id}\`\n` +
     `📋 *Detail:* "${taskText}"\n` +
-    `🚀 *Status:* \`PROCESSING (AI Agent sedang mengerjakan di PC...)\`\n\n` +
-    `_Komputer Anda langsung memproses kode dan menjalankan uji coba secara mandiri. Begitu selesai, laporan & screenshot akan otomatis dikirimkan ke sini._`,
+    `🚀 *Status:* \`PROCESSING (Multi-Agent Otonom Berjalan di PC...)\`\n\n` +
+    `🔄 *Tahapan Eksekusi:*\n` +
+    `1️⃣ 📋 *PM:* Breakdown User Story & Spesifikasi\n` +
+    `2️⃣ 📐 *Architect:* Validasi Skema Database & DTO API\n` +
+    `3️⃣ 🎨 *UI/UX:* Implementasi Kode & Anti-Slop Layout\n` +
+    `4️⃣ 🔍 *Reviewer:* Clean Code & Modularity Inspection\n` +
+    `5️⃣ 🛡️ *SecOps:* Audit Keamanan OWASP & Proteksi Data\n` +
+    `6️⃣ 🚀 *DevOps:* Build, Playwright Visual QA & Cloud Release\n\n` +
+    `_Laporan kemajuan dan screenshot akan otomatis dikirimkan ke chat ini._`,
     getMainKeyboard()
   );
 
   // Auto-trigger the autonomous AI coding agent
   triggerAgent(chatId, newTask.id, taskText);
+}
+
+async function handleAgents(chatId) {
+  const msg = [
+    `👥 *STRUKTUR 6-AGENT OTONOM KAISAR GYM*`,
+    `━━━━━━━━━━━━━━━━━━━━`,
+    `1️⃣ 📋 *Product Manager (PM)*`,
+    `   Uraikan instruksi kasar jadi PRD, user story, & acceptance criteria.`,
+    ``,
+    `2️⃣ 📐 *System Architect*`,
+    `   Rancang skema database (Prisma), kontrak REST API & DTOs, dan integrasi MCP.`,
+    ``,
+    `3️⃣ 🎨 *UI/UX Integrator*`,
+    `   Implementasi antarmuka Next.js/Tailwind, mobile-first, dan bebas Anti-Slop.`,
+    ``,
+    `4️⃣ 🔍 *Code Reviewer*`,
+    `   Validasi clean code, strict TypeScript, modularitas, dan refactoring.`,
+    ``,
+    `5️⃣ 🛡️ *Security Auditor (SecOps)*`,
+    `   Audit keamanan OWASP, JWT/RBAC, sanitasi input, dan proteksi secret.`,
+    ``,
+    `6️⃣ 🚀 *DevOps & QA Engineer*`,
+    `   Build verification (npm run build), visual Playwright QA, dan deploy Vercel.`,
+    `━━━━━━━━━━━━━━━━━━━━`,
+    `📁 _SOP lengkap tersimpan di folder \`.agents/\`_`,
+  ].join('\n');
+
+  await sendMessage(chatId, msg, getMainKeyboard());
 }
 
 async function handleListTasks(chatId) {
@@ -399,6 +434,8 @@ async function processMessage(msg) {
     await handleDeploy(chatId);
   } else if (text === '📋 List Task Agent' || text === '/tasks') {
     await handleListTasks(chatId);
+  } else if (text === '👥 Tim 6-Agent SOP' || text === '/agents') {
+    await handleAgents(chatId);
   } else if (text === '❓ Bantuan & Perintah' || text === '/help') {
     await handleHelp(chatId);
   } else {

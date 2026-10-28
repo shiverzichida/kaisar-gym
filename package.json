@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@embedded-postgres/windows-x64": "^18.4.0-beta.17",
-    "embedded-postgres": "^18.4.0-beta.17"
+    "embedded-postgres": "^18.4.0-beta.17",
+    "playwright": "^1.64.1"
   }
 }

@@ -1,0 +1,32 @@
+[
+  {
+    "id": "TASK-9649",
+    "text": "Buat fitur ubah mode dashboard jadi ada light atau dark di pos",
+    "createdAt": "2026-10-28T05:47:39.649Z",
+    "status": "COMPLETED",
+    "completedAt": "2026-10-28T07:24:42.908Z"
+  },
+  {
+    "id": "TASK-9075",
+    "text": "Ubah tulisan di portal Kaisar gym, jadi Kaisar Gym Pontianak - Luxury Fitness & Wellness",
+    "createdAt": "2026-10-28T07:36:29.075Z",
+    "status": "COMPLETED",
+    "completedAt": "2026-10-28T07:40:35.757Z"
+  },
+  {
+    "id": "TASK-3873",
+    "text": "https://kaisar-gym-portal.vercel.app/ belum di push kesini ya?",
+    "createdAt": "2026-10-28T07:41:33.873Z",
+    "status": "COMPLETED",
+    "completedAt": "2026-10-28T07:42:00.000Z",
+    "summary": "Sudah dipush ke GitHub main (commit b692f62) dan live di Vercel"
+  },
+  {
+    "id": "TASK-5377",
+    "text": "Kasi saran perbaikan di https://kaisar-gym-portal.vercel.app/ biar gak terlalu banyak konten AI",
+    "createdAt": "2026-10-28T07:44:15.378Z",
+    "status": "COMPLETED",
+    "completedAt": "2026-10-28T07:54:30.000Z",
+    "summary": "Selesai dianalisis oleh 6-Agent Team dengan panduan Anti-Slop. Laporan lengkap terbit di REKOMENDASI_ANTI_SLOP_PORTAL_KAISAR_GYM.md"
+  }
+]
