@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
+import { useTheme } from '@/context/ThemeContext';
 import { apiFetch, clearApiCache } from '@/lib/api';
 import {
   LayoutDashboard,
@@ -40,6 +41,7 @@ import {
   Maximize2,
   Mail,
   Sun,
+  Moon,
   X,
   LogIn,
   LogOut,
@@ -56,6 +58,7 @@ export default function AppShell({ children, onRefresh, loading = false }: AppSh
   const router = useRouter();
   const { currentUser, demoAccounts, switchRole, logout } = useAuth();
   const { showSuccess, showError } = useToast();
+  const { theme, toggleTheme } = useTheme();
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -504,7 +507,21 @@ export default function AppShell({ children, onRefresh, loading = false }: AppSh
             {loading ? (
               <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#FFC067]" />
             ) : (
-              <Sun className="w-3.5 h-3.5 text-slate-300" />
+              <RefreshCw className="w-3.5 h-3.5 text-slate-300" />
+            )}
+          </button>
+
+          {/* Light / Dark Mode Toggle */}
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="w-8 h-8 rounded-lg bg-[#0F172A] hover:bg-[#1E293B] border border-white/10 text-slate-300 flex items-center justify-center transition"
+            title={theme === 'dark' ? 'Ganti ke Mode Terang (Light)' : 'Ganti ke Mode Gelap (Dark)'}
+          >
+            {theme === 'dark' ? (
+              <Sun className="w-4 h-4 text-[#FFC067] transition-transform hover:rotate-45" />
+            ) : (
+              <Moon className="w-4 h-4 text-indigo-500 transition-transform hover:-rotate-12" />
             )}
           </button>
 

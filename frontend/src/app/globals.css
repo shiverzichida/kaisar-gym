@@ -147,3 +147,101 @@ body {
 .animate-toast-in {
   animation: slideDownFade 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+/* ══════════════ LIGHT MODE THEME OVERRIDES ══════════════ */
+html.light {
+  color-scheme: light;
+}
+
+html.light body {
+  background-color: #F8FAFC !important;
+  color: #0F172A !important;
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(217, 119, 6, 0.05) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(37, 99, 235, 0.05) 0px, transparent 50%),
+    radial-gradient(at 50% 100%, rgba(241, 245, 249, 0.8) 0px, transparent 50%) !important;
+}
+
+html.light header {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  border-color: #E2E8F0 !important;
+}
+
+html.light aside {
+  background-color: #FFFFFF !important;
+  border-color: #E2E8F0 !important;
+}
+
+html.light .glass-panel,
+html.light .kpi-card,
+html.light .glass-card {
+  background-color: #FFFFFF !important;
+  border-color: #E2E8F0 !important;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.06), 0 2px 6px -1px rgba(0, 0, 0, 0.04) !important;
+  color: #0F172A !important;
+}
+
+html.light .glass-panel:hover,
+html.light .kpi-card:hover {
+  background-color: #FFFFFF !important;
+  border-color: #F59E0B !important;
+  box-shadow: 0 10px 25px -5px rgba(245, 158, 11, 0.15), 0 4px 10px -2px rgba(0, 0, 0, 0.05) !important;
+}
+
+html.light .bg-[#0A1128],
+html.light .bg-[#070D1E],
+html.light .bg-[#050A18],
+html.light .bg-[#0F172A],
+html.light .bg-slate-950,
+html.light .bg-slate-900 {
+  background-color: #FFFFFF !important;
+}
+
+html.light .bg-[#1E293B],
+html.light .bg-slate-800 {
+  background-color: #F1F5F9 !important;
+}
+
+html.light .border-white\/10,
+html.light .border-white\/5,
+html.light .border-white\/15,
+html.light .border-slate-800 {
+  border-color: #E2E8F0 !important;
+}
+
+html.light .text-white {
+  color: #0F172A !important;
+}
+
+html.light .text-slate-100,
+html.light .text-slate-200 {
+  color: #1E293B !important;
+}
+
+html.light .text-slate-300,
+html.light .text-slate-400 {
+  color: #475569 !important;
+}
+
+html.light input,
+html.light select,
+html.light textarea {
+  background-color: #F8FAFC !important;
+  border-color: #CBD5E1 !important;
+  color: #0F172A !important;
+}
+
+html.light input:focus,
+html.light select:focus,
+html.light textarea:focus {
+  border-color: #D97706 !important;
+  background-color: #FFFFFF !important;
+}
+
+html.light table thead tr {
+  background-color: #F8FAFC !important;
+}
+
+html.light table tbody tr:hover {
+  background-color: #F1F5F9 !important;
+}
