@@ -30,6 +30,81 @@ import {
 export default function LandingPage() {
   const [selectedDay, setSelectedDay] = useState<'SENIN' | 'SELASA' | 'RABU' | 'KAMIS' | 'JUMAT' | 'SABTU'>('SENIN');
 
+  // Interactive Membership Calculator State (Anti-Slop Authentic Feature)
+  const [calcPlan, setCalcPlan] = useState<'GYM' | 'ALL_ACCESS' | 'PT'>('GYM');
+  const [calcDuration, setCalcDuration] = useState<1 | 3 | 6 | 12>(3);
+
+  const calculateMembership = () => {
+    if (calcPlan === 'PT') {
+      const sessions = calcDuration === 1 ? 4 : calcDuration === 3 ? 12 : calcDuration === 6 ? 24 : 48;
+      const pricePerSession = 175000;
+      const subtotal = sessions * pricePerSession;
+      const discount = calcDuration === 1 ? 0 : calcDuration === 3 ? 0.05 : calcDuration === 6 ? 0.1 : 0.15;
+      const total = subtotal * (1 - discount);
+      return {
+        name: `Dedicated PT (${sessions} Sesi)`,
+        periodText: `${sessions} Sesi Bimbingan (${calcDuration * 30} Hari)`,
+        subtotal,
+        discountAmount: subtotal * discount,
+        discountPercent: Math.round(discount * 100),
+        total,
+        bonus: calcDuration >= 6 ? 'Free Shaker Eksklusif Kaisar + Evaluasi InBody Tiap Bulan' : 'Free 1x Body Composition InBody Test',
+        features: [
+          '1-on-1 Pelatih Bersertifikasi Khusus',
+          'Pemrograman Beban Progresif & Nutrisi',
+          'Presensi Digital & Sisa Sesi Real-Time di Portal',
+          'Evaluasi Postur & Bebas Biaya Masuk Gym Saat Sesi',
+        ],
+      };
+    }
+
+    const basePerMonth = calcPlan === 'ALL_ACCESS' ? 600000 : 350000;
+    const planName = calcPlan === 'ALL_ACCESS' ? 'All-Access (Gym + Studio + Reformer)' : 'Membership Gym Reguler';
+    const subtotal = basePerMonth * calcDuration;
+
+    let discount = 0;
+    if (calcDuration === 3) discount = 0.1;
+    else if (calcDuration === 6) discount = 0.15;
+    else if (calcDuration === 12) discount = 0.25;
+
+    const discountAmount = subtotal * discount;
+    const total = subtotal - discountAmount;
+    let bonus = 'Free Goodie Bag & Konsultasi Pelatih Pertama';
+    if (calcDuration === 6) bonus = 'Free 1 Bulan Cuti (Freeze) + Handuk Latihan Eksklusif';
+    if (calcDuration === 12) bonus = 'Free 2 Bulan Cuti (Freeze) + Free 2 Sesi Personal Trainer';
+
+    const features =
+      calcPlan === 'ALL_ACCESS'
+        ? [
+            'Akses Penuh Seluruh Lantai Gym Bebas Waktu (06:00 - 22:00)',
+            'Gratis Seluruh Kelas Studio Aerobik, Zumba & Body Combat',
+            'Prioritas Slot Pilates Reformer Studio',
+            'Fasilitas Lengkap: Sauna Kering, Kamar Bilas Air Panas & Loker',
+            'Akses Otomatis Turnstile Gate via Face ID',
+          ]
+        : [
+            'Akses Penuh Seluruh Lantai Gym & Area Beban Bebas Waktu',
+            'Fasilitas Sauna Kering, Bilas Air Hangat & Loker Digital',
+            'Akses Otomatis Turnstile Gate via Face ID / QR Code',
+            'Akses Portal Member di Smartphone (Cek Status & Jadwal)',
+          ];
+
+    return {
+      name: planName,
+      periodText: `${calcDuration} Bulan`,
+      subtotal,
+      discountAmount,
+      discountPercent: Math.round(discount * 100),
+      total,
+      bonus,
+      features,
+    };
+  };
+
+  const calcResult = calculateMembership();
+  const formatRupiah = (val: number) =>
+    new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val);
+
   const scheduleData = {
     SENIN: [
       { name: 'PILATES MIX', time: '09:00 - 10:00', coach: 'Coach MEI', room: 'Pilates Sanctuary', spots: 3, category: 'PILATES REFORMER' },
@@ -112,7 +187,7 @@ export default function LandingPage() {
 
           <div className="flex items-center gap-4 text-xs">
             <a
-              href="http://localhost:3000"
+              href="https://pos.kaisargym.com"
               target="_blank"
               rel="noreferrer"
               className="flex items-center gap-1.5 text-slate-400 hover:text-white transition font-medium"
@@ -148,13 +223,14 @@ export default function LandingPage() {
           </Link>
 
           {/* Center Nav Links */}
-          <nav className="hidden lg:flex items-center gap-8 text-xs font-bold text-slate-300">
-            <a href="#portal-akses" className="hover:text-[#FFC067] transition">Portal Online</a>
-            <a href="#fasilitas" className="hover:text-[#FFC067] transition">Fasilitas</a>
-            <a href="#jadwal" className="hover:text-[#FFC067] transition">Jadwal Studio</a>
+          <nav className="hidden lg:flex items-center gap-7 text-xs font-bold text-slate-300">
+            <a href="#portal-akses" className="hover:text-[#FFC067] transition">Portal Mandiri</a>
+            <a href="#fasilitas" className="hover:text-[#FFC067] transition">Fasilitas &amp; Alat</a>
+            <a href="#jadwal" className="hover:text-[#FFC067] transition">Jadwal Kelas</a>
+            <a href="#kalkulator" className="hover:text-[#FFC067] transition">Kalkulator Biaya</a>
             <a href="#coaches" className="hover:text-[#FFC067] transition">Personal Trainer</a>
             <a href="#membership" className="hover:text-[#FFC067] transition">Membership</a>
-            <a href="#lokasi" className="hover:text-[#FFC067] transition">Lokasi</a>
+            <a href="#lokasi" className="hover:text-[#FFC067] transition">Lokasi &amp; Jam</a>
           </nav>
 
           {/* Right Action: Login Portal */}
@@ -181,19 +257,19 @@ export default function LandingPage() {
             <div className="lg:col-span-7 space-y-6">
               <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-md text-[11px] font-bold text-[#FFC067]">
                 <Sparkles className="w-3.5 h-3.5 text-[#FFC067]" />
-                <span>KAISAR GYM PONTIANAK — LUXURY FITNESS &amp; WELLNESS</span>
+                <span>PUSAT KEBUGARAN &amp; PILATES REFORMER TERLENGKAP DI PONTIANAK</span>
               </div>
 
               <h1 className="text-3xl sm:text-5xl lg:text-5xl xl:text-6xl font-black text-white tracking-tight leading-[1.12]">
-                Standar Kebugaran Baru, <br />
+                Pusat Kebugaran &amp; Pilates Reformer <br />
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#FFC067] via-amber-200 to-white">
-                  Fasilitas Bintang Lima
+                  Paling Lengkap &amp; Eksklusif
                 </span>{' '}
-                &amp; Pelatihan Terukur.
+                di Pontianak.
               </h1>
 
               <p className="text-sm sm:text-base text-slate-300 leading-relaxed max-w-xl">
-                Nikmati pengalaman gym premium di jantung kota Pontianak. Dilengkapi Pilates Reformer Sanctuary privat, platform Olympic Deadlift berperedam suara, studio kelas energik, Smart Face ID gate, dan Personal Trainer tersertifikasi dengan komitmen bagi hasil adil.
+                Fasilitas gym modern di Jl. Patimura No.84 Pontianak. Dilengkapi mesin beban komersial Hammer Strength, platform Olympic Deadlift berlantai karet peredam 30mm, Pilates Reformer Studio privat, sistem akses Face ID tanpa kartu fisik, dan sauna kering higienis.
               </p>
 
               {/* Action Buttons */}
@@ -208,31 +284,43 @@ export default function LandingPage() {
                 </Link>
 
                 <a
-                  href="#jadwal"
+                  href="#kalkulator"
                   className="px-6 py-3.5 rounded-2xl bg-[#0F172A] hover:bg-[#1E293B] border border-white/10 text-white font-bold text-sm transition flex items-center justify-center gap-2"
                 >
-                  <Calendar className="w-4 h-4 text-cyan-400" />
-                  <span>Jadwal Kelas Hari Ini</span>
+                  <Percent className="w-4 h-4 text-[#FFC067]" />
+                  <span>Hitung Biaya Paket</span>
                 </a>
               </div>
 
-              {/* 4 Highlights Ticker */}
+              {/* 4 Tangible Guarantees & Real Equipments (Anti-Slop Replacement for Fake Counters) */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-6 border-t border-white/10">
-                <div>
-                  <div className="text-2xl font-black text-[#FFC067]">1,200+</div>
-                  <div className="text-xs text-slate-400 font-semibold">Member Aktif</div>
+                <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/5">
+                  <div className="text-xs font-black text-[#FFC067] flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-[#FFC067]" />
+                    <span>Face ID Gate</span>
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-1">Akses cepat tanpa kartu</div>
                 </div>
-                <div>
-                  <div className="text-2xl font-black text-cyan-400">10+</div>
-                  <div className="text-xs text-slate-400 font-semibold">Certified Coaches</div>
+                <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/5">
+                  <div className="text-xs font-black text-cyan-400 flex items-center gap-1.5">
+                    <Dumbbell className="w-4 h-4 text-cyan-400" />
+                    <span>Hammer Strength</span>
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-1">Mesin ISO-lateral resmi</div>
                 </div>
-                <div>
-                  <div className="text-2xl font-black text-emerald-400">28+</div>
-                  <div className="text-xs text-slate-400 font-semibold">Kelas / Minggu</div>
+                <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/5">
+                  <div className="text-xs font-black text-emerald-400 flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-emerald-400" />
+                    <span>Pilates Reformer</span>
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-1">Cadillac Tower privat</div>
                 </div>
-                <div>
-                  <div className="text-2xl font-black text-purple-400">50 : 50</div>
-                  <div className="text-xs text-slate-400 font-semibold">Flat Coach Split</div>
+                <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/5">
+                  <div className="text-xs font-black text-amber-300 flex items-center gap-1.5">
+                    <HeartPulse className="w-4 h-4 text-amber-300" />
+                    <span>Sauna Kering</span>
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-1">Recovery &amp; air panas</div>
                 </div>
               </div>
             </div>
@@ -254,22 +342,27 @@ export default function LandingPage() {
                   <div className="absolute top-4 left-4 right-4 flex items-center justify-between">
                     <span className="px-3 py-1 rounded-full bg-slate-900/80 backdrop-blur-md border border-white/20 text-[11px] font-bold text-white flex items-center gap-1.5">
                       <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Smart Face ID Turnstile Access</span>
+                      <span>Smart Turnstile Gate</span>
                     </span>
                     <span className="px-2.5 py-1 rounded-full bg-emerald-500/90 text-slate-950 text-[10px] font-black uppercase tracking-wider">
-                      Live Gate
+                      Live Access
                     </span>
                   </div>
 
-                  <div className="absolute bottom-4 left-4 right-4 p-4 rounded-2xl bg-[#0F172A]/90 backdrop-blur-md border border-white/15 space-y-1">
+                  <div className="absolute bottom-4 left-4 right-4 p-4 rounded-2xl bg-[#0F172A]/95 backdrop-blur-md border border-white/15 space-y-2">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-400 font-medium">Kapasitas Gym Saat Ini:</span>
-                      <span className="text-emerald-400 font-bold flex items-center gap-1">
-                        <Activity className="w-3.5 h-3.5" /> 184 Member Latihan
+                      <span className="text-slate-300 font-semibold flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-[#FFC067]" />
+                        <span>Operasional Hari Ini:</span>
+                      </span>
+                      <span className="text-emerald-400 font-bold flex items-center gap-1 text-[11px] bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/30">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        Buka (06:00 – 22:00 WIB)
                       </span>
                     </div>
-                    <div className="text-[11px] text-slate-300">
-                      Akses cepat tanpa antre dengan scan wajah atau QR Code di HP Anda.
+                    <div className="text-[11px] text-slate-300 flex items-center justify-between border-t border-white/10 pt-2">
+                      <span className="text-slate-400">Turnstile Barrier:</span>
+                      <span className="text-white font-medium">Auto Check-in via Face ID / QR Code</span>
                     </div>
                   </div>
                 </div>
@@ -415,13 +508,13 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-14 space-y-2">
             <span className="text-xs font-bold text-[#FFC067] uppercase tracking-widest">
-              Fasilitas Eksklusif
+              Fasilitas &amp; Peralatan Resmi
             </span>
             <h2 className="text-3xl font-black text-white">
-              Lingkungan Latihan Mewah &amp; Higienis
+              Spesifikasi Alat &amp; Area Kebugaran Berstandar Komersial
             </h2>
             <p className="text-xs sm:text-sm text-slate-400">
-              Dirancang dengan standar estetika tinggi, sirkulasi udara optimal, dan mesin kebugaran berstandar olimpiade.
+              Setiap alat dan area dirancang dengan material komersial tahan uji, peredam getaran lantai, dan higienitas terjaga setiap hari.
             </p>
           </div>
 
@@ -433,7 +526,7 @@ export default function LandingPage() {
               </div>
               <h3 className="text-lg font-bold text-white">Pilates Reformer Sanctuary</h3>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Studio khusus dengan mesin Pilates Reformer &amp; Cadillac Tower impor untuk melatih kekuatan otot inti (*core*), memperbaiki postur tulang belakang, dan kelenturan tubuh.
+                Studio Reformer &amp; Cadillac Tower impor dengan pegas stainless steel presisi untuk koreksi postur, fleksibilitas tubuh, dan penguatan core privat bersama Coach bersertifikasi.
               </p>
             </div>
 
@@ -444,7 +537,7 @@ export default function LandingPage() {
               </div>
               <h3 className="text-lg font-bold text-white">Olympic Free Weights Area</h3>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Platform Olympic deadlift berlantai karet peredam suara tebal, squat rack kompetisi, dumbbell hingga 50kg, dan jajaran cable selectorized machines lengkap.
+                Platform deadlift kayu jati tebal dilapisi rubber tile 30mm penyerap dentuman, barbel standar IWF 20kg, squat rack komersial, dan dumbbell urethane lengkap dari 2.5kg hingga 50kg.
               </p>
             </div>
 
@@ -455,7 +548,7 @@ export default function LandingPage() {
               </div>
               <h3 className="text-lg font-bold text-white">Studio Aerobik &amp; Combat</h3>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Lantai kayu pegas anti cedera dengan tata cahaya modern dan sistem tata suara berkualitas konser untuk kelas Zumba, Body Combat, dan functional boxing.
+                Lantai parket kayu pegas anti benturan sendi lutut, pencahayaan LED strip modern, dan sound system berkualitas konser untuk kelas Zumba, Body Combat, dan functional boxing.
               </p>
             </div>
 
@@ -466,7 +559,7 @@ export default function LandingPage() {
               </div>
               <h3 className="text-lg font-bold text-white">Turnstile Gate AI Face Recognition</h3>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Akses masuk otomatis cepat 0.3 detik menggunakan teknologi pengenalan wajah atau QR Code digital dari HP tanpa harus repot membawa kartu fisik.
+                Pintu ayun stainless steel SUS304 dengan Face ID dome camera responsif (&lt;0.3 detik). Member masuk praktis tanpa perlu kartu fisik yang rawan tertinggal.
               </p>
             </div>
 
@@ -477,7 +570,7 @@ export default function LandingPage() {
               </div>
               <h3 className="text-lg font-bold text-white">Locker Room, Hot Shower &amp; Sauna</h3>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Loker digital pribadi, kamar bilas air panas yang wangi dan bersih, serta ruang sauna kering untuk pemulihan optimal otot seusai latihan berat.
+                Ruang sauna kayu pinus Nordik untuk mempercepat pemulihan asam laktat, 6 bilik shower air panas bertekanan stabil, dan loker digital aman.
               </p>
             </div>
 
@@ -488,7 +581,7 @@ export default function LandingPage() {
               </div>
               <h3 className="text-lg font-bold text-white">Protein Shake &amp; Coffee Bar</h3>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Menyediakan minuman whey protein shake segar, BCAA, elektrolit dingin, dan kopi espresso sehat untuk menunjang energi latihan Anda.
+                Penyedia whey protein shake isolat segar, BCAA dingin, air mineral higienis, dan kopi espresso sehat untuk menunjang energi latihan Anda.
               </p>
             </div>
           </div>
@@ -735,6 +828,160 @@ export default function LandingPage() {
               </Link>
             </div>
           </div>
+
+          {/* ══════════════ INTERACTIVE MEMBERSHIP & PT CALCULATOR (ANTI-SLOP) ══════════════ */}
+          <div id="kalkulator" className="mt-16 rounded-3xl border border-[#FFC067]/40 bg-gradient-to-b from-[#0F172A] to-[#070D1E] p-6 sm:p-10 shadow-2xl space-y-8 relative overflow-hidden">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-6">
+              <div>
+                <span className="text-xs font-bold text-[#FFC067] uppercase tracking-widest flex items-center gap-1.5">
+                  <Percent className="w-3.5 h-3.5 text-[#FFC067]" />
+                  Kalkulator Simulasi Biaya &amp; Promo
+                </span>
+                <h3 className="text-2xl font-black text-white mt-1">Hitung Investasi Kebugaran Anda</h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Pilih paket dan durasi komitmen untuk melihat total diskon, bonus tambahan, dan estimasi biaya per bulan.
+                </p>
+              </div>
+              <div className="px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold shrink-0 flex items-center gap-1.5 self-start sm:self-auto">
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Tanpa Biaya Admin Tersembunyi</span>
+              </div>
+            </div>
+
+            {/* Step 1: Select Plan */}
+            <div className="space-y-3">
+              <label className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                1. Pilih Kategori Program:
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setCalcPlan('GYM')}
+                  className={`p-4 rounded-2xl border text-left transition ${
+                    calcPlan === 'GYM'
+                      ? 'border-[#FFC067] bg-[#FFC067]/10 text-white shadow-gold-sm'
+                      : 'border-white/10 bg-white/[0.02] text-slate-400 hover:text-white hover:border-white/20'
+                  }`}
+                >
+                  <div className="text-xs font-black text-white">Gym Floor Reguler</div>
+                  <div className="text-[11px] text-[#FFC067] mt-0.5 font-bold">Mulai Rp 350.000 / bln</div>
+                  <div className="text-[10px] text-slate-400 mt-1">Bebas latihan beban, sauna &amp; loker</div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setCalcPlan('ALL_ACCESS')}
+                  className={`p-4 rounded-2xl border text-left transition ${
+                    calcPlan === 'ALL_ACCESS'
+                      ? 'border-cyan-400 bg-cyan-400/10 text-white shadow-md'
+                      : 'border-white/10 bg-white/[0.02] text-slate-400 hover:text-white hover:border-white/20'
+                  }`}
+                >
+                  <div className="text-xs font-black text-white">All-Access + Studio</div>
+                  <div className="text-[11px] text-cyan-400 mt-0.5 font-bold">Mulai Rp 600.000 / bln</div>
+                  <div className="text-[10px] text-slate-400 mt-1">Gym + Kelas Zumba, Combat &amp; Reformer</div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setCalcPlan('PT')}
+                  className={`p-4 rounded-2xl border text-left transition ${
+                    calcPlan === 'PT'
+                      ? 'border-emerald-400 bg-emerald-400/10 text-white shadow-md'
+                      : 'border-white/10 bg-white/[0.02] text-slate-400 hover:text-white hover:border-white/20'
+                  }`}
+                >
+                  <div className="text-xs font-black text-white">Dedicated Coach (1-on-1 PT)</div>
+                  <div className="text-[11px] text-emerald-400 mt-0.5 font-bold">Mulai Rp 175.000 / sesi</div>
+                  <div className="text-[10px] text-slate-400 mt-1">Bimbingan intensif privat &amp; nutrisi</div>
+                </button>
+              </div>
+            </div>
+
+            {/* Step 2: Select Duration */}
+            <div className="space-y-3">
+              <label className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                2. Pilih Durasi Komitmen:
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                {[
+                  { dur: 1, label: '1 Bulan', tag: 'Normal' },
+                  { dur: 3, label: '3 Bulan', tag: 'Hemat 10%' },
+                  { dur: 6, label: '6 Bulan', tag: 'Hemat 15%' },
+                  { dur: 12, label: '12 Bulan', tag: 'Super VIP (Hemat 25%)' },
+                ].map((item) => (
+                  <button
+                    key={item.dur}
+                    type="button"
+                    onClick={() => setCalcDuration(item.dur as 1 | 3 | 6 | 12)}
+                    className={`py-3 px-3 rounded-xl border text-center transition ${
+                      calcDuration === item.dur
+                        ? 'border-[#FFC067] bg-gradient-to-r from-[#FFC067] to-[#E5A850] text-slate-950 font-black shadow-gold-sm'
+                        : 'border-white/10 bg-[#0F172A] text-slate-300 hover:text-white hover:border-white/25'
+                    }`}
+                  >
+                    <div className="text-xs font-extrabold">{item.label}</div>
+                    <div className={`text-[10px] mt-0.5 ${calcDuration === item.dur ? 'text-slate-950/80 font-bold' : 'text-[#FFC067]'}`}>
+                      {item.tag}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Result Box */}
+            <div className="p-6 rounded-2xl bg-black/40 border border-white/10 grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+              <div className="md:col-span-7 space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-white/10 text-[#FFC067] font-bold">
+                    {calcResult.name}
+                  </span>
+                  <span className="text-xs text-slate-400 font-semibold">• {calcResult.periodText}</span>
+                </div>
+
+                <div className="space-y-1.5 pt-1">
+                  {calcResult.features.map((feat, idx) => (
+                    <div key={idx} className="flex items-center gap-2 text-xs text-slate-300">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      <span>{feat}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="p-3 rounded-xl bg-emerald-950/30 border border-emerald-500/20 text-xs text-emerald-300 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span><strong>Bonus Tambahan:</strong> {calcResult.bonus}</span>
+                </div>
+              </div>
+
+              <div className="md:col-span-5 border-t md:border-t-0 md:border-l border-white/10 pt-4 md:pt-0 md:pl-6 space-y-3 text-left md:text-right">
+                {calcResult.discountAmount > 0 && (
+                  <div className="text-xs text-slate-400 space-y-0.5">
+                    <div>Harga Normal: <span className="line-through">{formatRupiah(calcResult.subtotal)}</span></div>
+                    <div className="text-emerald-400 font-bold">Hemat Diskon: -{formatRupiah(calcResult.discountAmount)} ({calcResult.discountPercent}%)</div>
+                  </div>
+                )}
+                <div>
+                  <div className="text-[11px] text-slate-400 uppercase tracking-widest font-bold">Total Pembayaran:</div>
+                  <div className="text-3xl font-black text-[#FFC067] mt-0.5">
+                    {formatRupiah(calcResult.total)}
+                  </div>
+                </div>
+
+                <a
+                  href={`https://wa.me/6281234567890?text=${encodeURIComponent(
+                    `Halo Kaisar Gym Pontianak, saya ingin klaim promo dari Website untuk:\n- Paket: ${calcResult.name}\n- Durasi: ${calcResult.periodText}\n- Total: ${formatRupiah(calcResult.total)}\nMohon info pendaftaran dan jadwalnya. Terima kasih!`
+                  )}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-slate-950 font-black text-xs shadow-lg transition flex items-center justify-center gap-2"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  <span>Daftar via WhatsApp Kasir »</span>
+                </a>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -830,13 +1077,13 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <span className="font-bold text-slate-300">KAISAR GYM</span>
-            <span>— The Ultimate Luxury Fitness Experience in Pontianak.</span>
+            <span>— Pusat Kebugaran, Wellness &amp; Pilates Reformer Terlengkap di Pontianak.</span>
           </div>
 
           <div className="flex items-center gap-5">
             <Link href="/login?tab=member" className="hover:text-slate-300 transition">Portal Member</Link>
             <Link href="/login?tab=coach" className="hover:text-slate-300 transition">Portal Coach PT</Link>
-            <a href="http://localhost:3000" target="_blank" rel="noreferrer" className="hover:text-slate-300 transition">
+            <a href="https://pos.kaisargym.com" target="_blank" rel="noreferrer" className="hover:text-slate-300 transition">
               Dashboard POS Kasir ↗
             </a>
           </div>
