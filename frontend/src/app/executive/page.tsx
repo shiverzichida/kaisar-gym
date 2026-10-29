@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
+import { useAuth } from '@/context/AuthContext';
 import { apiFetch, formatRp } from '@/lib/api';
 import {
   DollarSign,
@@ -37,6 +38,7 @@ import {
 } from 'lucide-react';
 
 export default function MobileExecutiveDashboard() {
+  const { currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState<'ALL' | 'REVENUE' | 'HEADCOUNT' | 'DRAWER' | 'TRAINERS'>('ALL');
   const [timeframe, setTimeframe] = useState<'TODAY' | 'WEEK' | 'MONTH'>('TODAY');
   const [loading, setLoading] = useState(true);
@@ -280,8 +282,8 @@ export default function MobileExecutiveDashboard() {
                   EXECUTIVE HP
                 </span>
               </div>
-              <p className="text-[10px] text-slate-400 font-medium">
-                Live Owner Monitor • Pontianak
+              <p className="text-[10px] text-slate-400 font-medium truncate max-w-[150px] sm:max-w-none">
+                {currentUser?.fullName || 'Kaisar Putra (Owner)'} • Pontianak
               </p>
             </div>
           </div>
