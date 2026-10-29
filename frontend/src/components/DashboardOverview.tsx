@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { formatRp } from '@/lib/api';
 import {
   Users,
@@ -21,6 +22,7 @@ import {
   Wallet,
   MapPin,
   Printer,
+  Crown,
 } from 'lucide-react';
 import MonthlyRevenueChart from '@/components/dashboard/MonthlyRevenueChart';
 import ExpiringMembersTable from '@/components/dashboard/ExpiringMembersTable';
@@ -221,6 +223,36 @@ export default function DashboardOverview({
           </div>
         </div>
       )}
+
+      {/* ══════════════ PROMO / ENTRY BANNER TO MOBILE EXECUTIVE DASHBOARD ══════════════ */}
+      <div className="w-full rounded-2xl bg-gradient-to-r from-[#0F172A] via-[#1E293B] to-[#0F172A] border border-[#FFC067]/30 p-3 sm:p-4 shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 relative overflow-hidden">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[#FFC067] flex items-center justify-center shrink-0">
+            <Crown className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-extrabold text-sm text-white">
+                Mobile Executive Live Dashboard (Khusus Layar HP Owner)
+              </span>
+              <span className="px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[9px] font-black uppercase">
+                Paket Executive
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Pantau Omzet Detik Ini, Headcount Gate ({todayCheckIns} Kunjungan), Saldo Laci Kasir, &amp; Leaderboard Trainer dari smartphone Anda.
+            </p>
+          </div>
+        </div>
+
+        <Link
+          href="/executive"
+          className="px-4 py-2 rounded-xl bg-[#FFC067] hover:bg-[#ffca7d] text-slate-950 font-black text-xs flex items-center gap-1.5 transition shadow-md shadow-[#FFC067]/20 shrink-0 self-end sm:self-center"
+        >
+          <span>📱 Buka Layar HP Owner</span>
+          <ArrowRight className="w-3.5 h-3.5" />
+        </Link>
+      </div>
 
       {/* ══════════════ 2. FIVE ENTERPRISE KPI CARDS (Clean & Modern) ══════════════ */}
       <div className="rounded-2xl border border-white/10 bg-[#0F172A] p-4 sm:p-5 shadow-lg">

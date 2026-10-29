@@ -52,5 +52,11 @@
     "status": "COMPLETED",
     "completedAt": "2026-10-28T10:03:00.000Z",
     "summary": "Simulasi 3 tahap sukses dieksekusi di database Supabase: (1) Buat jadwal Zumba Burn Party 18:30 WIB, (2) Member Vivian Lie booking kelas mandiri via Portal Member, (3) Coach Hendra verifikasi presensi ATTENDED. Tiga screenshot visual dikirimkan ke Telegram."
+  },
+  {
+    "id": "TASK-2677",
+    "text": "Berapa kapasitas storage nya? Kalau kita develop kaisar gym kesini cukup gak?",
+    "createdAt": "2026-10-28T10:18:32.677Z",
+    "status": "PROCESSING"
   }
 ]

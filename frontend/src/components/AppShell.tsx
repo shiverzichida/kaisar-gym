@@ -45,6 +45,7 @@ import {
   X,
   LogIn,
   LogOut,
+  Crown,
 } from 'lucide-react';
 
 interface AppShellProps {
@@ -113,6 +114,7 @@ export default function AppShell({ children, onRefresh, loading = false }: AppSh
       group: 'Overview',
       items: [
         { href: '/', label: 'Dashboard', icon: LayoutDashboard },
+        { href: '/executive', label: 'Executive HP View', icon: Crown },
         { href: '/pos', label: 'Point of Sale', icon: ShoppingCart },
         {
           href: '/portals',
@@ -167,6 +169,8 @@ export default function AppShell({ children, onRefresh, loading = false }: AppSh
     switch (path) {
       case '/':
         return 'Dashboard Overview';
+      case '/executive':
+        return 'Mobile Executive Live Dashboard (Khusus HP Owner)';
       case '/pos':
         return 'Point of Sale (Kasir Cepat)';
       case '/invoices':
@@ -425,6 +429,13 @@ export default function AppShell({ children, onRefresh, loading = false }: AppSh
                   Aksi &amp; Pintasan
                 </div>
                 <Link
+                  href="/executive"
+                  onClick={() => setShowQuickMenu(false)}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl bg-amber-500/10 hover:bg-[#FFC067]/20 text-xs font-bold text-[#FFC067]"
+                >
+                  <Crown className="w-3.5 h-3.5 text-[#FFC067]" /> 📱 Mobile Executive HP View
+                </Link>
+                <Link
                   href="/pos"
                   onClick={() => setShowQuickMenu(false)}
                   className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-[#FFC067]/15 text-xs font-semibold text-slate-200 hover:text-[#FFC067]"
@@ -462,6 +473,17 @@ export default function AppShell({ children, onRefresh, loading = false }: AppSh
               </div>
             )}
           </div>
+
+          {/* Executive HP View Pill */}
+          <Link
+            href="/executive"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/20 to-[#FFC067]/10 hover:from-amber-500/30 hover:to-[#FFC067]/20 border border-[#FFC067]/40 text-[#FFC067] text-xs font-bold transition shadow-sm"
+            title="Buka Mobile Executive Live Dashboard (Khusus Layar HP Owner)"
+          >
+            <Crown className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Executive HP</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          </Link>
 
           {/* Branch Chip */}
           <div className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0F172A] border border-white/10 text-xs font-semibold text-slate-300">
