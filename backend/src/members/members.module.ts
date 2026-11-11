@@ -81,39 +81,53 @@ export class MembersService {
     return member;
   }
 
-  async generateNextMemberCode(): Promise<string> {
+  async generateNextMemberCode(offset = 0): Promise<string> {
     const year = new Date().getFullYear();
+    const prefix = `KG-${year}-`;
+    const latest = await this.prisma.member.findFirst({
+      where: { memberCode: { startsWith: prefix } },
+      orderBy: { memberCode: 'desc' },
+      select: { memberCode: true },
+    });
+    const lastNum = latest ? parseInt(latest.memberCode.slice(prefix.length), 10) || 0 : 0;
     const count = await this.prisma.member.count();
-    const nextNum = String(count + 1).padStart(4, '0');
-    const code = `KG-${year}-${nextNum}`;
-    const existing = await this.prisma.member.findUnique({ where: { memberCode: code } });
-    if (existing) {
-      return `KG-${year}-${String(count + 2).padStart(4, '0')}`;
-    }
-    return code;
+    const baseNum = Math.max(lastNum, count);
+    return `${prefix}${String(baseNum + 1 + offset).padStart(4, '0')}`;
   }
 
   async createMember(data: any) {
-    const memberCode = await this.generateNextMemberCode();
     const passwordHash = await bcrypt.hash('kaisar123', 10);
+    let member: any = null;
+    let memberCode = '';
 
-    const member = await this.prisma.member.create({
-      data: {
-        memberCode,
-        nik: data.nik || null,
-        fullName: data.fullName,
-        phone: data.phone,
-        email: data.email || null,
-        address: data.address || null,
-        rtRw: data.rtRw || null,
-        kecamatan: data.kecamatan || null,
-        birthDate: data.birthDate ? new Date(data.birthDate) : null,
-        gender: data.gender || 'L',
-        plateNumber: data.plateNumber || null,
-        parkingActive: Boolean(data.plateNumber && data.packageId),
-        status: data.packageId ? 'ACTIVE' : 'INACTIVE',
-      },
-    });
+    for (let attempt = 0; attempt < 15; attempt++) {
+      memberCode = await this.generateNextMemberCode(attempt);
+      try {
+        member = await this.prisma.member.create({
+          data: {
+            memberCode,
+            nik: data.nik || null,
+            fullName: data.fullName,
+            phone: data.phone,
+            email: data.email || null,
+            address: data.address || null,
+            rtRw: data.rtRw || null,
+            kecamatan: data.kecamatan || null,
+            birthDate: data.birthDate ? new Date(data.birthDate) : null,
+            gender: data.gender || 'L',
+            plateNumber: data.plateNumber || null,
+            parkingActive: Boolean(data.plateNumber && data.packageId),
+            status: data.packageId ? 'ACTIVE' : 'INACTIVE',
+          },
+        });
+        break;
+      } catch (err: any) {
+        if (err?.code === 'P2002' && attempt < 14) {
+          continue;
+        }
+        throw err;
+      }
+    }
 
     // Auto-sync Member Portal account (username = memberCode)
     await this.prisma.user.upsert({

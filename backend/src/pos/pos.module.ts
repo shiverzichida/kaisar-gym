@@ -63,8 +63,7 @@ export class PosService {
 
     const grandTotal = Math.max(0, subtotal - discountAmount);
     const todayStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const count = await this.prisma.posTransaction.count();
-    const invoiceNumber = `INV-${todayStr}-${String(count + 1).padStart(4, '0')}`;
+    const invPrefix = `INV-${todayStr}-`;
 
     const activeShift = await this.prisma.cashierShift.findFirst({ where: { status: 'OPEN' } });
 
@@ -79,7 +78,20 @@ export class PosService {
     }
     const changeAmount = Math.max(0, cashAmount + nonCashAmount - grandTotal);
 
-    const result = await this.prisma.$transaction(async (tx) => {
+    let result: any;
+    for (let attempt = 0; attempt < 15; attempt++) {
+      const latestInv = await this.prisma.posTransaction.findFirst({
+        where: { invoiceNumber: { startsWith: invPrefix } },
+        orderBy: { invoiceNumber: 'desc' },
+        select: { invoiceNumber: true },
+      });
+      const lastSeq = latestInv ? parseInt(latestInv.invoiceNumber.slice(invPrefix.length), 10) || 0 : 0;
+      const count = await this.prisma.posTransaction.count();
+      const baseSeq = Math.max(lastSeq, count);
+      const invoiceNumber = `${invPrefix}${String(baseSeq + 1 + attempt).padStart(4, '0')}`;
+
+      try {
+        result = await this.prisma.$transaction(async (tx) => {
       const transaction = await tx.posTransaction.create({
         data: {
           invoiceNumber,
@@ -255,8 +267,16 @@ export class PosService {
         });
       }
 
-      return transaction;
-    });
+        return transaction;
+        });
+        break;
+      } catch (err: any) {
+        if (err?.code === 'P2002' && attempt < 14) {
+          continue;
+        }
+        throw err;
+      }
+    }
 
     await this.prisma.logAudit({
       userName: body.cashierName || 'Kasir Front Desk',
