@@ -1,5 +1,5 @@
 import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
@@ -9,6 +9,21 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
 
   async onModuleDestroy() {
     await this.$disconnect();
+  }
+
+  /** Serializes critical sequence generation inside a PostgreSQL transaction lock. */
+  async runWithAdvisoryLock<T>(
+    lockKey: number,
+    fn: (tx: Prisma.TransactionClient) => Promise<T>,
+  ): Promise<T> {
+    const safeKey = Math.trunc(lockKey);
+    return this.$transaction(
+      async (tx) => {
+        await tx.$executeRawUnsafe(`DO $$ BEGIN PERFORM pg_advisory_xact_lock(${safeKey}); END $$;`);
+        return fn(tx);
+      },
+      { maxWait: 25000, timeout: 30000 },
+    );
   }
 
   async logAudit(params: {

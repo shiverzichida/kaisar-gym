@@ -78,20 +78,17 @@ export class PosService {
     }
     const changeAmount = Math.max(0, cashAmount + nonCashAmount - grandTotal);
 
-    let result: any;
-    for (let attempt = 0; attempt < 15; attempt++) {
-      const latestInv = await this.prisma.posTransaction.findFirst({
+    const result = await this.prisma.runWithAdvisoryLock(88002, async (tx) => {
+      const latestInv = await tx.posTransaction.findFirst({
         where: { invoiceNumber: { startsWith: invPrefix } },
         orderBy: { invoiceNumber: 'desc' },
         select: { invoiceNumber: true },
       });
       const lastSeq = latestInv ? parseInt(latestInv.invoiceNumber.slice(invPrefix.length), 10) || 0 : 0;
-      const count = await this.prisma.posTransaction.count();
+      const count = await tx.posTransaction.count();
       const baseSeq = Math.max(lastSeq, count);
-      const invoiceNumber = `${invPrefix}${String(baseSeq + 1 + attempt).padStart(4, '0')}`;
+      const invoiceNumber = `${invPrefix}${String(baseSeq + 1).padStart(4, '0')}`;
 
-      try {
-        result = await this.prisma.$transaction(async (tx) => {
       const transaction = await tx.posTransaction.create({
         data: {
           invoiceNumber,
@@ -268,15 +265,7 @@ export class PosService {
       }
 
         return transaction;
-        });
-        break;
-      } catch (err: any) {
-        if (err?.code === 'P2002' && attempt < 14) {
-          continue;
-        }
-        throw err;
-      }
-    }
+    });
 
     await this.prisma.logAudit({
       userName: body.cashierName || 'Kasir Front Desk',

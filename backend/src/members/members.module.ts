@@ -81,86 +81,78 @@ export class MembersService {
     return member;
   }
 
-  async generateNextMemberCode(offset = 0): Promise<string> {
+  async generateNextMemberCode(offset = 0, client: any = this.prisma): Promise<string> {
     const year = new Date().getFullYear();
     const prefix = `KG-${year}-`;
-    const latest = await this.prisma.member.findFirst({
+    const latest = await client.member.findFirst({
       where: { memberCode: { startsWith: prefix } },
       orderBy: { memberCode: 'desc' },
       select: { memberCode: true },
     });
     const lastNum = latest ? parseInt(latest.memberCode.slice(prefix.length), 10) || 0 : 0;
-    const count = await this.prisma.member.count();
+    const count = await client.member.count();
     const baseNum = Math.max(lastNum, count);
     return `${prefix}${String(baseNum + 1 + offset).padStart(4, '0')}`;
   }
 
   async createMember(data: any) {
     const passwordHash = await bcrypt.hash('kaisar123', 10);
-    let member: any = null;
-    let memberCode = '';
 
-    for (let attempt = 0; attempt < 15; attempt++) {
-      memberCode = await this.generateNextMemberCode(attempt);
-      try {
-        member = await this.prisma.member.create({
-          data: {
-            memberCode,
-            nik: data.nik || null,
-            fullName: data.fullName,
-            phone: data.phone,
-            email: data.email || null,
-            address: data.address || null,
-            rtRw: data.rtRw || null,
-            kecamatan: data.kecamatan || null,
-            birthDate: data.birthDate ? new Date(data.birthDate) : null,
-            gender: data.gender || 'L',
-            plateNumber: data.plateNumber || null,
-            parkingActive: Boolean(data.plateNumber && data.packageId),
-            status: data.packageId ? 'ACTIVE' : 'INACTIVE',
-          },
-        });
-        break;
-      } catch (err: any) {
-        if (err?.code === 'P2002' && attempt < 14) {
-          continue;
+    const member = await this.prisma.runWithAdvisoryLock(74001, async (tx) => {
+      const memberCode = await this.generateNextMemberCode(0, tx);
+      const createdMember = await tx.member.create({
+        data: {
+          memberCode,
+          nik: data.nik || null,
+          fullName: data.fullName,
+          phone: data.phone,
+          email: data.email || null,
+          address: data.address || null,
+          rtRw: data.rtRw || null,
+          kecamatan: data.kecamatan || null,
+          birthDate: data.birthDate ? new Date(data.birthDate) : null,
+          gender: data.gender || 'L',
+          plateNumber: data.plateNumber || null,
+          parkingActive: Boolean(data.plateNumber && data.packageId),
+          status: data.packageId ? 'ACTIVE' : 'INACTIVE',
+        },
+      });
+
+      // Auto-sync Member Portal account (username = memberCode)
+      await tx.user.upsert({
+        where: { username: memberCode },
+        update: { memberId: createdMember.id },
+        create: {
+          username: memberCode,
+          passwordHash,
+          fullName: createdMember.fullName,
+          email: createdMember.email,
+          phone: createdMember.phone,
+          role: 'MEMBER',
+          memberId: createdMember.id,
+        },
+      });
+
+      if (data.packageId) {
+        const pkg = await tx.membershipPackage.findUnique({ where: { id: data.packageId } });
+        if (pkg) {
+          const startDate = new Date();
+          const endDate = new Date(startDate.getTime() + pkg.durationDays * 24 * 60 * 60 * 1000);
+          await tx.memberSubscription.create({
+            data: {
+              memberId: createdMember.id,
+              packageId: pkg.id,
+              startDate,
+              endDate,
+              status: 'ACTIVE',
+              notes: 'Registrasi Member Baru',
+            },
+          });
         }
-        throw err;
       }
-    }
 
-    // Auto-sync Member Portal account (username = memberCode)
-    await this.prisma.user.upsert({
-      where: { username: memberCode },
-      update: { memberId: member.id },
-      create: {
-        username: memberCode,
-        passwordHash,
-        fullName: member.fullName,
-        email: member.email,
-        phone: member.phone,
-        role: 'MEMBER',
-        memberId: member.id,
-      },
+      return createdMember;
     });
-
-    if (data.packageId) {
-      const pkg = await this.prisma.membershipPackage.findUnique({ where: { id: data.packageId } });
-      if (pkg) {
-        const startDate = new Date();
-        const endDate = new Date(startDate.getTime() + pkg.durationDays * 24 * 60 * 60 * 1000);
-        await this.prisma.memberSubscription.create({
-          data: {
-            memberId: member.id,
-            packageId: pkg.id,
-            startDate,
-            endDate,
-            status: 'ACTIVE',
-            notes: 'Registrasi Member Baru',
-          },
-        });
-      }
-    }
 
     await this.prisma.logAudit({
       userName: data.actorName || 'Kasir Front Desk',
