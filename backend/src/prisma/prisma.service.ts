@@ -33,7 +33,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         if (!Number.isSafeInteger(numericKey)) {
           throw new Error('Invalid advisory lock key');
         }
-        await tx.$queryRaw`SELECT pg_advisory_xact_lock(${numericKey})`;
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(${numericKey})`;
         return fn(tx);
       },
       { maxWait: 25000, timeout: 30000 },

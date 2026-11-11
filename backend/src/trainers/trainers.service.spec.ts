@@ -11,16 +11,21 @@ function makeTrainerPrisma() {
       findFirst: jest.fn().mockResolvedValue(null),
       create: jest.fn(),
     },
+    trainer: {
+      findUnique: jest.fn(),
+    },
     salaryRequest: {
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
+      create: jest.fn(),
       update: jest.fn(),
     },
   };
   return {
     runWithAdvisoryLock: jest.fn(async (_k, fn) => fn(tx)),
     logAudit: jest.fn().mockResolvedValue(undefined),
-    trainer: { findUnique: jest.fn() },
-    salaryRequest: { findFirst: jest.fn(), create: jest.fn() },
+    trainer: tx.trainer,
+    salaryRequest: tx.salaryRequest,
     tx,
   } as any;
 }

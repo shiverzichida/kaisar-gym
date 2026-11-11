@@ -692,64 +692,67 @@ export class TrainersService {
     completedSessions?: number;
     notes?: string;
   }) {
-    const trainer = await this.prisma.trainer.findUnique({
-      where: { id: body.trainerId },
-      include: {
-        ptContracts: { include: { ptPackage: true, member: true } },
-        ptSessionLogs: true,
-      },
-    });
-    if (!trainer) throw new NotFoundException('Trainer tidak ditemukan');
-
     const monthYear = body.monthYear || getJakartaMonthKey();
-    const existingClaim = await this.prisma.salaryRequest.findFirst({
-      where: {
-        trainerId: trainer.id,
-        monthYear,
-        status: { in: ['PENDING', 'APPROVED_MANAGER', 'PAID'] },
-      },
-    });
-    if (existingClaim) {
-      throw new BadRequestException(`Pengajuan gaji untuk periode ${monthYear} sudah ada (Status: ${existingClaim.status})`);
-    }
 
-    const comm = this.calculateFlatCommission(trainer.ptContracts);
-    const completedSessions = Math.max(trainer.ptSessionLogs.length, comm.completedSessionsCount);
+    return this.prisma.runWithAdvisoryLock(`salary_create:${body.trainerId}:${monthYear}`, async (tx) => {
+      const trainer = await tx.trainer.findUnique({
+        where: { id: body.trainerId },
+        include: {
+          ptContracts: { include: { ptPackage: true, member: true } },
+          ptSessionLogs: true,
+        },
+      });
+      if (!trainer) throw new NotFoundException('Trainer tidak ditemukan');
 
-    const requestedAmount = body.amount !== undefined ? Number(body.amount) : undefined;
-    const totalAmount =
-      comm.earnedPtCommission > 0
-        ? comm.earnedPtCommission
-        : requestedAmount && Number.isFinite(requestedAmount) && requestedAmount > 0
-        ? requestedAmount
-        : 0;
+      const existingClaim = await tx.salaryRequest.findFirst({
+        where: {
+          trainerId: trainer.id,
+          monthYear,
+          status: { in: ['PENDING', 'APPROVED_MANAGER', 'PAID'] },
+        },
+      });
+      if (existingClaim) {
+        throw new BadRequestException(`Pengajuan gaji untuk periode ${monthYear} sudah ada (Status: ${existingClaim.status})`);
+      }
 
-    if (!Number.isFinite(totalAmount) || totalAmount <= 0) {
-      throw new BadRequestException('Belum ada komisi PT yang dapat diklaim pada periode ini');
-    }
+      const comm = this.calculateFlatCommission(trainer.ptContracts);
+      const completedSessions = Math.max(trainer.ptSessionLogs.length, comm.completedSessionsCount);
 
-    return this.prisma.salaryRequest.create({
-      data: {
-        trainerId: trainer.id,
-        monthYear,
-        completedSessions,
-        sessionCommission: totalAmount,
-        salesCommission: 0,
-        totalAmount,
-        status: 'PENDING',
-        notes: body.notes || 'Klaim transfer komisi bagi hasil 50% Kaisar Gym',
-      },
-      include: {
-        trainer: {
-          select: {
-            id: true,
-            code: true,
-            fullName: true,
-            phone: true,
-            specialization: true,
+      const requestedAmount = body.amount !== undefined ? Number(body.amount) : undefined;
+      const totalAmount =
+        comm.earnedPtCommission > 0
+          ? comm.earnedPtCommission
+          : requestedAmount && Number.isFinite(requestedAmount) && requestedAmount > 0
+          ? requestedAmount
+          : 0;
+
+      if (!Number.isFinite(totalAmount) || totalAmount <= 0) {
+        throw new BadRequestException('Belum ada komisi PT yang dapat diklaim pada periode ini');
+      }
+
+      return tx.salaryRequest.create({
+        data: {
+          trainerId: trainer.id,
+          monthYear,
+          completedSessions,
+          sessionCommission: totalAmount,
+          salesCommission: 0,
+          totalAmount,
+          status: 'PENDING',
+          notes: body.notes || 'Klaim transfer komisi bagi hasil 50% Kaisar Gym',
+        },
+        include: {
+          trainer: {
+            select: {
+              id: true,
+              code: true,
+              fullName: true,
+              phone: true,
+              specialization: true,
+            },
           },
         },
-      },
+      });
     });
   }
 

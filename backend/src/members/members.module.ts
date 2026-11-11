@@ -235,64 +235,85 @@ export class MembersService {
 
   // 3.3 Sistem Cuti Member (Hanya Cuti Terjadwal dengan Tanggal Mulai dan Selesai)
   async addLeave(memberId: string, body: { leaveType?: string; startDate: string; endDate: string; reason?: string; actorName?: string }) {
-    const member = await this.prisma.member.findUnique({
-      where: { id: memberId },
-      include: { subscriptions: { orderBy: { endDate: 'desc' } } },
-    });
-    if (!member || member.subscriptions.length === 0) {
-      throw new BadRequestException('Member belum memiliki riwayat paket untuk cuti');
+    if (!body.endDate) throw new BadRequestException('Tanggal selesai wajib diisi untuk cuti terjadwal');
+    const start = new Date(body.startDate);
+    const end = new Date(body.endDate);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
+      throw new BadRequestException('Rentang tanggal cuti tidak valid');
     }
 
-    const latestSub = member.subscriptions[0];
-    const start = new Date(body.startDate);
+    const { leave, oldEndDate, newEndDate, daysAdded, newMemberStatus, updatedSub } =
+      await this.prisma.runWithAdvisoryLock(`member_leave:${memberId}`, async (tx) => {
+        const member = await tx.member.findUnique({
+          where: { id: memberId },
+          include: { subscriptions: { orderBy: { endDate: 'desc' } } },
+        });
+        if (!member || member.subscriptions.length === 0) {
+          throw new BadRequestException('Member belum memiliki riwayat paket untuk cuti');
+        }
 
-    // Scheduled or Retroactive Leave
-    if (!body.endDate) throw new BadRequestException('Tanggal selesai wajib diisi untuk cuti terjadwal');
-    const end = new Date(body.endDate);
-    const diffMs = end.getTime() - start.getTime();
-    const daysAdded = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+        const latestSub = member.subscriptions[0];
+        const overlappingLeave = await tx.memberLeave.findFirst({
+          where: {
+            memberId,
+            startDate: { lte: end },
+            endDate: { gte: start },
+          },
+        });
+        if (overlappingLeave) {
+          throw new BadRequestException('Member sudah memiliki catatan cuti pada rentang tanggal tersebut');
+        }
 
-    const oldEndDate = new Date(latestSub.endDate);
-    const newEndDate = new Date(oldEndDate.getTime() + daysAdded * 24 * 60 * 60 * 1000);
-    const now = new Date();
+        const diffMs = end.getTime() - start.getTime();
+        const calcDaysAdded = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
 
-    // Retroactive Leave restoration check: if cuti already passed and newEndDate > now, restore to ACTIVE
-    const isCurrentlyOnLeave = start <= now && end >= now;
-    const newMemberStatus = isCurrentlyOnLeave ? 'CUTI' : newEndDate >= now ? 'ACTIVE' : 'INACTIVE';
+        const prevEnd = new Date(latestSub.endDate);
+        const calcNewEndDate = new Date(prevEnd.getTime() + calcDaysAdded * 24 * 60 * 60 * 1000);
+        const now = new Date();
 
-    const { leave, updatedSub } = await this.prisma.$transaction(async (tx) => {
-      const createdLeave = await tx.memberLeave.create({
-        data: {
-          memberId,
-          subscriptionId: latestSub.id,
-          leaveType: 'SCHEDULED',
-          startDate: start,
-          endDate: end,
-          daysAdded,
-          status: isCurrentlyOnLeave ? 'ACTIVE' : 'COMPLETED',
-          reason: body.reason || 'Cuti Terjadwal',
-          approvedBy: body.actorName || 'Manager Operasional',
-        },
+        // Retroactive Leave restoration check: if cuti already passed and newEndDate > now, restore to ACTIVE
+        const isCurrentlyOnLeave = start <= now && end >= now;
+        const calcMemberStatus = isCurrentlyOnLeave ? 'CUTI' : calcNewEndDate >= now ? 'ACTIVE' : 'INACTIVE';
+
+        const createdLeave = await tx.memberLeave.create({
+          data: {
+            memberId,
+            subscriptionId: latestSub.id,
+            leaveType: 'SCHEDULED',
+            startDate: start,
+            endDate: end,
+            daysAdded: calcDaysAdded,
+            status: isCurrentlyOnLeave ? 'ACTIVE' : 'COMPLETED',
+            reason: body.reason || 'Cuti Terjadwal',
+            approvedBy: body.actorName || 'Manager Operasional',
+          },
+        });
+
+        const subRes = await tx.memberSubscription.update({
+          where: { id: latestSub.id },
+          data: {
+            endDate: calcNewEndDate,
+            status: isCurrentlyOnLeave ? 'FROZEN' : calcNewEndDate >= now ? 'ACTIVE' : 'EXPIRED',
+          },
+        });
+
+        await tx.member.update({
+          where: { id: memberId },
+          data: {
+            status: calcMemberStatus,
+            parkingActive: calcMemberStatus === 'ACTIVE',
+          },
+        });
+
+        return {
+          leave: createdLeave,
+          oldEndDate: prevEnd,
+          newEndDate: calcNewEndDate,
+          daysAdded: calcDaysAdded,
+          newMemberStatus: calcMemberStatus,
+          updatedSub: subRes,
+        };
       });
-
-      const subRes = await tx.memberSubscription.update({
-        where: { id: latestSub.id },
-        data: {
-          endDate: newEndDate,
-          status: isCurrentlyOnLeave ? 'FROZEN' : newEndDate >= now ? 'ACTIVE' : 'EXPIRED',
-        },
-      });
-
-      await tx.member.update({
-        where: { id: memberId },
-        data: {
-          status: newMemberStatus,
-          parkingActive: newMemberStatus === 'ACTIVE',
-        },
-      });
-
-      return { leave: createdLeave, updatedSub: subRes };
-    });
 
     await this.prisma.logAudit({
       userName: body.actorName || 'Manager Operasional',
@@ -308,44 +329,57 @@ export class MembersService {
   }
 
   async resumeUnlimitedLeave(leaveId: string, actorName = 'Manager Operasional') {
-    const leave = await this.prisma.memberLeave.findUnique({
+    const meta = await this.prisma.memberLeave.findUnique({
       where: { id: leaveId },
-      include: { subscription: true },
+      select: { memberId: true },
     });
-    if (!leave || leave.status !== 'ACTIVE') {
+    if (!meta) {
       throw new BadRequestException('Data cuti tidak ditemukan atau sudah selesai');
     }
 
-    const now = new Date();
-    const diffMs = Math.max(0, now.getTime() - new Date(leave.startDate).getTime());
-    const daysFrozen = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
-    const newEndDate = new Date(new Date(leave.subscription.endDate).getTime() + daysFrozen * 24 * 60 * 60 * 1000);
+    const { updatedLeave, daysFrozen, newEndDate } = await this.prisma.runWithAdvisoryLock(
+      `member_leave:${meta.memberId}`,
+      async (tx) => {
+        const leave = await tx.memberLeave.findUnique({
+          where: { id: leaveId },
+          include: { subscription: true },
+        });
+        if (!leave || leave.status !== 'ACTIVE') {
+          throw new BadRequestException('Data cuti tidak ditemukan atau sudah selesai');
+        }
 
-    const updatedLeave = await this.prisma.$transaction(async (tx) => {
-      const resLeave = await tx.memberLeave.update({
-        where: { id: leaveId },
-        data: {
-          endDate: now,
-          daysAdded: daysFrozen,
-          status: 'COMPLETED',
-        },
-      });
+        const now = new Date();
+        const diffMs = Math.max(0, now.getTime() - new Date(leave.startDate).getTime());
+        const calcDaysFrozen = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+        const calcNewEndDate = new Date(
+          new Date(leave.subscription.endDate).getTime() + calcDaysFrozen * 24 * 60 * 60 * 1000,
+        );
 
-      await tx.memberSubscription.update({
-        where: { id: leave.subscriptionId },
-        data: {
-          endDate: newEndDate,
-          status: 'ACTIVE',
-        },
-      });
+        const resLeave = await tx.memberLeave.update({
+          where: { id: leaveId },
+          data: {
+            endDate: now,
+            daysAdded: calcDaysFrozen,
+            status: 'COMPLETED',
+          },
+        });
 
-      await tx.member.update({
-        where: { id: leave.memberId },
-        data: { status: 'ACTIVE', parkingActive: true },
-      });
+        await tx.memberSubscription.update({
+          where: { id: leave.subscriptionId },
+          data: {
+            endDate: calcNewEndDate,
+            status: 'ACTIVE',
+          },
+        });
 
-      return resLeave;
-    });
+        await tx.member.update({
+          where: { id: leave.memberId },
+          data: { status: 'ACTIVE', parkingActive: true },
+        });
+
+        return { updatedLeave: resLeave, daysFrozen: calcDaysFrozen, newEndDate: calcNewEndDate };
+      },
+    );
 
     await this.prisma.logAudit({
       userName: actorName,
@@ -360,34 +394,45 @@ export class MembersService {
   }
 
   async deleteLeave(leaveId: string, actorName = 'Manager Operasional') {
-    const leave = await this.prisma.memberLeave.findUnique({
+    const meta = await this.prisma.memberLeave.findUnique({
       where: { id: leaveId },
-      include: { subscription: true },
+      select: { memberId: true },
     });
-    if (!leave) throw new NotFoundException('Data cuti tidak ditemukan');
+    if (!meta) throw new NotFoundException('Data cuti tidak ditemukan');
 
-    const rolledBackEndDate = new Date(
-      new Date(leave.subscription.endDate).getTime() - leave.daysAdded * 24 * 60 * 60 * 1000,
+    const { leave, rolledBackEndDate } = await this.prisma.runWithAdvisoryLock(
+      `member_leave:${meta.memberId}`,
+      async (tx) => {
+        const existing = await tx.memberLeave.findUnique({
+          where: { id: leaveId },
+          include: { subscription: true },
+        });
+        if (!existing) throw new NotFoundException('Data cuti tidak ditemukan');
+
+        const calcRolledBack = new Date(
+          new Date(existing.subscription.endDate).getTime() - existing.daysAdded * 24 * 60 * 60 * 1000,
+        );
+        const now = new Date();
+        const isStillActive = calcRolledBack >= now;
+
+        await tx.memberSubscription.update({
+          where: { id: existing.subscriptionId },
+          data: {
+            endDate: calcRolledBack,
+            status: isStillActive ? 'ACTIVE' : 'EXPIRED',
+          },
+        });
+
+        await tx.member.update({
+          where: { id: existing.memberId },
+          data: { status: isStillActive ? 'ACTIVE' : 'INACTIVE', parkingActive: isStillActive },
+        });
+
+        await tx.memberLeave.delete({ where: { id: leaveId } });
+
+        return { leave: existing, rolledBackEndDate: calcRolledBack };
+      },
     );
-    const now = new Date();
-    const isStillActive = rolledBackEndDate >= now;
-
-    await this.prisma.$transaction(async (tx) => {
-      await tx.memberSubscription.update({
-        where: { id: leave.subscriptionId },
-        data: {
-          endDate: rolledBackEndDate,
-          status: isStillActive ? 'ACTIVE' : 'EXPIRED',
-        },
-      });
-
-      await tx.member.update({
-        where: { id: leave.memberId },
-        data: { status: isStillActive ? 'ACTIVE' : 'INACTIVE', parkingActive: isStillActive },
-      });
-
-      await tx.memberLeave.delete({ where: { id: leaveId } });
-    });
 
     await this.prisma.logAudit({
       userName: actorName,
