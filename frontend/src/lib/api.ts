@@ -55,10 +55,26 @@ export async function apiFetch<T = any>(path: string, options?: RequestInit): Pr
   const baseUrl = getApiBaseUrl();
   const url = `${baseUrl}${path.startsWith('/') ? path : `/${path}`}`;
 
+  const actorHeaders: Record<string, string> = {};
+  if (!isGet && typeof window !== 'undefined') {
+    try {
+      const rawUser = localStorage.getItem('kaisar_gym_user');
+      if (rawUser) {
+        const user = JSON.parse(rawUser);
+        if (user?.id) actorHeaders['x-actor-id'] = encodeURIComponent(String(user.id));
+        if (user?.fullName || user?.username) {
+          actorHeaders['x-actor-name'] = encodeURIComponent(String(user.fullName || user.username));
+        }
+        if (user?.role) actorHeaders['x-actor-role'] = encodeURIComponent(String(user.role));
+      }
+    } catch {}
+  }
+
   const res = await fetch(url, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
+      ...actorHeaders,
       ...(options?.headers || {}),
     },
     cache: 'no-store',

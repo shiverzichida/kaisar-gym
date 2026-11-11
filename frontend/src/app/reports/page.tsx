@@ -154,7 +154,7 @@ export default function ReportsPage() {
                 Audit Trail &amp; Log Keamanan Sistem
               </h3>
               <p className="text-xs text-slate-400 mt-0.5">
-                Pencatatan tamper-proof aktivitas staf: Void nota transaksi, koreksi tanggal paket, dan otorisasi manajerial.
+                Pencatatan tamper-proof aktivitas staf: perubahan Master Paket &amp; Produk, Member, Trainer, Kelas, Void nota transaksi, dan otorisasi manajerial.
               </p>
             </div>
           </div>
@@ -179,7 +179,16 @@ export default function ReportsPage() {
                     </td>
                   </tr>
                 ) : (
-                  auditLogs.map((log: any) => (
+                  auditLogs.map((log: any) => {
+                    const targetLabel =
+                      log.afterJson?.name ||
+                      log.afterJson?.fullName ||
+                      log.afterJson?.title ||
+                      log.afterJson?.invoiceNumber ||
+                      log.afterJson?.className ||
+                      log.afterJson?.code ||
+                      '';
+                    return (
                     <tr key={log.id} className="hover:bg-white/[0.02]">
                       <td className="py-2.5 px-4 text-slate-400 font-mono">
                         {new Date(log.createdAt).toLocaleString('id-ID')}
@@ -194,7 +203,13 @@ export default function ReportsPage() {
                         {log.action}
                       </td>
                       <td className="py-2.5 px-4 text-slate-300">
-                        {log.entityName} #{log.entityId?.slice(0, 8)}...
+                        <span className="font-semibold text-white">{log.entityName}</span>
+                        {targetLabel ? <span className="text-slate-300"> · {targetLabel}</span> : null}
+                        {log.entityId ? (
+                          <span className="text-slate-500 font-mono text-[11px] ml-1.5">
+                            #{log.entityId.slice(0, 8)}
+                          </span>
+                        ) : null}
                       </td>
                       <td className="py-2.5 px-4">
                         <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold">
@@ -202,7 +217,8 @@ export default function ReportsPage() {
                         </span>
                       </td>
                     </tr>
-                  ))
+                    );
+                  })
                 )}
               </tbody>
             </table>

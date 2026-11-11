@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaModule } from './prisma/prisma.module';
+import { AuditInterceptor } from './common/audit.interceptor';
 import { AuthModule } from './auth/auth.module';
 import { MembersModule } from './members/members.module';
 import { GroupsModule } from './groups/groups.module';
@@ -22,6 +24,12 @@ import { FinanceModule } from './finance/finance.module';
     ClassesModule,
     AttendanceModule,
     FinanceModule,
+  ],
+  providers: [
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: AuditInterceptor,
+    },
   ],
 })
 export class AppModule {}
