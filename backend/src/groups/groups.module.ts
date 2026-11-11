@@ -24,55 +24,60 @@ export class GroupsService {
   }
 
   async createGroup(data: any) {
-    const count = await this.prisma.groupMembership.count();
-    const code = `GRP-${data.groupType?.slice(0, 4) || 'CORP'}-${String(count + 1).padStart(3, '0')}`;
+    return this.prisma.$transaction(async (tx) => {
+      const count = await tx.groupMembership.count();
+      const code = `GRP-${data.groupType?.slice(0, 4) || 'CORP'}-${String(count + 1).padStart(3, '0')}`;
 
-    const group = await this.prisma.groupMembership.create({
-      data: {
-        code,
-        name: data.name,
-        groupType: data.groupType || 'CORPORATE',
-        maxSlots: Number(data.maxSlots || 10),
-        packageId: data.packageId || null,
-        picMemberId: data.picMemberId || null,
-        status: 'INACTIVE',
-      },
-    });
-
-    if (data.picMemberId) {
-      await this.prisma.member.update({
-        where: { id: data.picMemberId },
-        data: { groupMembershipId: group.id, isGroupPic: true },
+      const group = await tx.groupMembership.create({
+        data: {
+          code,
+          name: data.name,
+          groupType: data.groupType || 'CORPORATE',
+          maxSlots: Number(data.maxSlots || 10),
+          packageId: data.packageId || null,
+          picMemberId: data.picMemberId || null,
+          status: 'INACTIVE',
+        },
       });
-    }
 
-    return group;
+      if (data.picMemberId) {
+        await tx.member.update({
+          where: { id: data.picMemberId },
+          data: { groupMembershipId: group.id, isGroupPic: true },
+        });
+      }
+
+      return group;
+    });
   }
 
   async addMemberToGroup(groupId: string, memberId: string, isPic = false) {
-    const group = await this.prisma.groupMembership.findUnique({
-      where: { id: groupId },
-      include: { members: true },
-    });
-    if (!group) throw new NotFoundException('Grup tidak ditemukan');
-    if (group.members.length >= group.maxSlots) {
-      throw new BadRequestException(`Slot grup penuh (Maksimal ${group.maxSlots} anggota)`);
-    }
-
-    await this.prisma.member.update({
-      where: { id: memberId },
-      data: {
-        groupMembershipId: groupId,
-        isGroupPic: isPic,
-      },
-    });
-
-    if (isPic) {
-      await this.prisma.groupMembership.update({
+    await this.prisma.runWithAdvisoryLock(`group:${groupId}`, async (tx) => {
+      const group = await tx.groupMembership.findUnique({
         where: { id: groupId },
-        data: { picMemberId: memberId },
+        include: { members: true },
       });
-    }
+      if (!group) throw new NotFoundException('Grup tidak ditemukan');
+      const alreadyInGroup = group.members.some((m) => m.id === memberId);
+      if (!alreadyInGroup && group.members.length >= group.maxSlots) {
+        throw new BadRequestException(`Slot grup penuh (Maksimal ${group.maxSlots} anggota)`);
+      }
+
+      await tx.member.update({
+        where: { id: memberId },
+        data: {
+          groupMembershipId: groupId,
+          isGroupPic: isPic,
+        },
+      });
+
+      if (isPic) {
+        await tx.groupMembership.update({
+          where: { id: groupId },
+          data: { picMemberId: memberId },
+        });
+      }
+    });
 
     return this.findAll();
   }

@@ -44,6 +44,7 @@ export default function MobileExecutiveDashboard() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string>('');
+  const [fetchError, setFetchError] = useState<string>('');
 
   // Raw API Data
   const [financeData, setFinanceData] = useState<any>(null);
@@ -56,28 +57,42 @@ export default function MobileExecutiveDashboard() {
   const loadData = useCallback(async (isManualRefresh = false) => {
     if (isManualRefresh) setRefreshing(true);
     try {
-      const [finRes, anaRes, trRes, attRes, catRes, memRes] = await Promise.all([
-        apiFetch('/finance/overview').catch(() => null),
-        apiFetch('/finance/analytics').catch(() => null),
-        apiFetch('/trainers').catch(() => []),
-        apiFetch('/attendance').catch(() => null),
-        apiFetch('/pos/catalog').catch(() => null),
-        apiFetch('/members').catch(() => []),
+      const results = await Promise.allSettled([
+        apiFetch('/finance/overview'),
+        apiFetch('/finance/analytics'),
+        apiFetch('/trainers'),
+        apiFetch('/attendance'),
+        apiFetch('/pos/catalog'),
+        apiFetch('/members'),
       ]);
 
-      setFinanceData(finRes);
-      setAnalyticsData(anaRes);
-      setTrainersData(Array.isArray(trRes) ? trRes : []);
-      setAttendanceData(attRes);
-      setPosCatalog(catRes);
-      setMembersData(Array.isArray(memRes) ? memRes : []);
+      const [finRes, anaRes, trRes, attRes, catRes, memRes] = results;
+      const failedCount = results.filter((r) => r.status === 'rejected').length;
+
+      if (finRes.status === 'fulfilled') setFinanceData(finRes.value);
+      if (anaRes.status === 'fulfilled') setAnalyticsData(anaRes.value);
+      if (trRes.status === 'fulfilled') setTrainersData(Array.isArray(trRes.value) ? trRes.value : []);
+      if (attRes.status === 'fulfilled') setAttendanceData(attRes.value);
+      if (catRes.status === 'fulfilled') setPosCatalog(catRes.value);
+      if (memRes.status === 'fulfilled') setMembersData(Array.isArray(memRes.value) ? memRes.value : []);
+
+      setFetchError(
+        failedCount > 0
+          ? `${failedCount} endpoint live executive gagal dimuat — menampilkan data terakhir yang tersedia.`
+          : ''
+      );
 
       const now = new Date();
       setLastUpdated(
-        now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' WIB'
+        now.toLocaleTimeString('id-ID', {
+          timeZone: 'Asia/Jakarta',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        }) + ' WIB'
       );
-    } catch (err) {
-      console.error('Failed to load executive live data', err);
+    } catch (err: any) {
+      setFetchError(err?.message || 'Gagal memuat data live executive.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -129,8 +144,8 @@ export default function MobileExecutiveDashboard() {
   }, [filteredTransactions]);
 
   const totalRevenue = useMemo(() => {
-    return Object.values(paymentBreakdown).reduce((a, b) => a + b, 0) || (timeframe === 'TODAY' ? 1850000 : 32450000);
-  }, [paymentBreakdown, timeframe]);
+    return Object.values(paymentBreakdown).reduce((a, b) => a + b, 0);
+  }, [paymentBreakdown]);
 
   // Breakdown by service category
   const categoryBreakdown = useMemo(() => {
@@ -160,7 +175,7 @@ export default function MobileExecutiveDashboard() {
     const recent = memberAttendanceLogs.filter(
       (log) => new Date(log.checkInTime) >= twoHoursAgo && log.gateStatus === 'ALLOWED'
     );
-    return Math.max(recent.length, 38); // Realistic fallback if demo
+    return recent.length;
   }, [memberAttendanceLogs]);
 
   const gymCapacity = 120;
@@ -173,79 +188,46 @@ export default function MobileExecutiveDashboard() {
   }, [capacityPct]);
 
   // ══════════════ 3. CASH DRAWER & SHIFT MONITOR ══════════════
-  const startingCash = activeShift?.startingCashFloat || 500000;
-  const cashIn = paymentBreakdown.CASH || 850000;
-  const cashExpense = activeShift?.totalExpenseOut || 50000;
-  const expectedCashInDrawer = activeShift?.expectedEndingCash || (startingCash + cashIn - cashExpense);
+  const startingCash = Number(activeShift?.startingCashFloat || 0);
+  const cashIn = Number(paymentBreakdown.CASH || 0);
+  const cashExpense = Number(activeShift?.totalExpenseOut || 0);
+  const expectedCashInDrawer = activeShift?.expectedEndingCash ?? (startingCash + cashIn - cashExpense);
 
-  const cashierName = activeShift?.cashierName || 'Rina Marlina (Kasir Front Desk)';
+  const cashierName = activeShift?.cashierName || 'Belum ada shift kasir aktif';
   const shiftStartTime = activeShift?.startTime
-    ? new Date(activeShift.startTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB'
-    : '07:30 WIB (Pagi)';
+    ? new Date(activeShift.startTime).toLocaleTimeString('id-ID', {
+        timeZone: 'Asia/Jakarta',
+        hour: '2-digit',
+        minute: '2-digit',
+      }) + ' WIB'
+    : 'Belum dibuka';
 
   // ══════════════ 4. TRAINER LEADERBOARD ══════════════
   const rankedTrainers = useMemo(() => {
     if (!trainersData || trainersData.length === 0) {
-      return [
-        {
-          id: 'TR-001',
-          fullName: 'Coach Hendra Wijaya',
-          specialization: 'Hypertrophy & Fat Loss',
-          photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
-          completedSessions: 32,
-          activeClients: 14,
-          totalRevenue: 6400000,
-          earnedCommission: 3200000,
-          gymRevenue: 3200000,
-          clockedIn: true,
-        },
-        {
-          id: 'TR-002',
-          fullName: 'Coach Denny Kurniawan',
-          specialization: 'Strength & Conditioning',
-          photoUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop&q=80',
-          completedSessions: 26,
-          activeClients: 11,
-          totalRevenue: 5200000,
-          earnedCommission: 2600000,
-          gymRevenue: 2600000,
-          clockedIn: true,
-        },
-        {
-          id: 'TR-003',
-          fullName: 'Coach Satria Pratama',
-          specialization: 'Functional & HIIT',
-          photoUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&auto=format&fit=crop&q=80',
-          completedSessions: 19,
-          activeClients: 8,
-          totalRevenue: 3800000,
-          earnedCommission: 1900000,
-          gymRevenue: 1900000,
-          clockedIn: false,
-        },
-      ];
+      return [];
     }
 
     return [...trainersData]
       .map((tr) => {
         const metrics = tr.metrics || {};
-        const completed = metrics.completedSessionsThisMonth || tr.ptSessionLogs?.length || 15;
-        const clients = metrics.activeClientsCount || tr.ptContracts?.length || 6;
-        const totalRev = metrics.totalContractValue || completed * 200000;
-        const commission = metrics.earnedPtCommission || Math.round(totalRev * 0.5);
-        const gymRev = metrics.earnedGymRevenue || totalRev - commission;
+        const completed = metrics.completedSessionsThisMonth ?? tr.ptSessionLogs?.length ?? 0;
+        const clients = metrics.activeClientsCount ?? tr.ptContracts?.length ?? 0;
+        const totalRev = metrics.totalContractValue ?? 0;
+        const commission = metrics.earnedPtCommission ?? 0;
+        const gymRev = metrics.earnedGymRevenue ?? Math.max(0, totalRev - commission);
 
         return {
           id: tr.id,
           fullName: tr.fullName,
           specialization: tr.specialization || 'Fitness Coach',
-          photoUrl: tr.photoUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
+          photoUrl: tr.photoUrl || '/assets/img/kaisar-gym-logo-circle.png',
           completedSessions: completed,
           activeClients: clients,
           totalRevenue: totalRev,
           earnedCommission: commission,
           gymRevenue: gymRev,
-          clockedIn: true,
+          clockedIn: Boolean(metrics.clockedInToday),
         };
       })
       .sort((a, b) => b.completedSessions - a.completedSessions);
@@ -340,6 +322,12 @@ export default function MobileExecutiveDashboard() {
 
       {/* ══════════════ MAIN CONTENT CONTAINER ══════════════ */}
       <main className="max-w-xl mx-auto px-4 pt-4 space-y-4">
+        {fetchError && (
+          <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2.5 text-xs text-rose-200 flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+            <span>{fetchError}</span>
+          </div>
+        )}
         {/* ══════════════ TAB 1: 💰 LIVE REVENUE TRACKER ══════════════ */}
         {(activeTab === 'ALL' || activeTab === 'REVENUE') && (
           <section className="rounded-2xl border border-white/10 bg-[#0F172A] p-4 shadow-xl space-y-3.5 relative overflow-hidden">

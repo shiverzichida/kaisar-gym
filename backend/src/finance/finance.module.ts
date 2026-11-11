@@ -1,5 +1,6 @@
-import { Body, Controller, Get, Injectable, Module, NotFoundException, Param, Post, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Injectable, Module, NotFoundException, Param, Post, Query } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { getJakartaHour } from '../common/jakarta-time';
 
 @Injectable()
 export class FinanceService {
@@ -19,82 +20,117 @@ export class FinanceService {
   }
 
   async openShift(body: { cashierName: string; startingCashFloat: number; notes?: string }) {
-    const existing = await this.prisma.cashierShift.findFirst({ where: { status: 'OPEN' } });
-    if (existing) return existing;
+    return this.prisma.runWithAdvisoryLock(88002, async (tx) => {
+      const existing = await tx.cashierShift.findFirst({ where: { status: 'OPEN' } });
+      if (existing) return existing;
 
-    const floatVal = Number(body.startingCashFloat || 500000);
-    return this.prisma.cashierShift.create({
-      data: {
-        cashierName: body.cashierName || 'Kasir Front Desk',
-        startingCashFloat: floatVal,
-        expectedEndingCash: floatVal,
-        status: 'OPEN',
-        notes: body.notes || 'Pembukaan Shift Baru',
-      },
+      const floatVal = Number(body.startingCashFloat ?? 500000);
+      if (!Number.isFinite(floatVal) || floatVal < 0) {
+        throw new BadRequestException('Modal awal shift tidak valid');
+      }
+
+      return tx.cashierShift.create({
+        data: {
+          cashierName: body.cashierName || 'Kasir Front Desk',
+          startingCashFloat: floatVal,
+          expectedEndingCash: floatVal,
+          status: 'OPEN',
+          notes: body.notes || 'Pembukaan Shift Baru',
+        },
+      });
     });
   }
 
   async closeShift(id: string, body: { actualEndingCash: number; notes?: string }) {
-    return this.prisma.cashierShift.update({
-      where: { id },
-      data: {
-        endTime: new Date(),
-        actualEndingCash: Number(body.actualEndingCash),
-        status: 'CLOSED',
-        notes: body.notes || 'Closing Shift Harian',
-      },
+    const actualCash = Number(body.actualEndingCash);
+    if (!Number.isFinite(actualCash) || actualCash < 0) {
+      throw new BadRequestException('Nominal kas fisik akhir shift tidak valid');
+    }
+
+    return this.prisma.runWithAdvisoryLock(88002, async (tx) => {
+      const existing = await tx.cashierShift.findUnique({ where: { id } });
+      if (!existing) throw new NotFoundException('Shift kasir tidak ditemukan');
+      if (existing.status !== 'OPEN') {
+        throw new BadRequestException('Shift kasir ini sudah ditutup sebelumnya');
+      }
+
+      return tx.cashierShift.update({
+        where: { id },
+        data: {
+          endTime: new Date(),
+          actualEndingCash: actualCash,
+          status: 'CLOSED',
+          notes: body.notes || 'Closing Shift Harian',
+        },
+      });
     });
   }
 
   async addExpense(body: { category: string; description: string; amount: number; recordedBy: string }) {
-    const activeShift = await this.prisma.cashierShift.findFirst({ where: { status: 'OPEN' } });
     const amount = Number(body.amount);
-
-    const expense = await this.prisma.expense.create({
-      data: {
-        shiftId: activeShift?.id || null,
-        category: body.category || 'OPERASIONAL',
-        description: body.description,
-        amount,
-        recordedBy: body.recordedBy || 'Kasir Front Desk',
-      },
-    });
-
-    if (activeShift) {
-      await this.prisma.cashierShift.update({
-        where: { id: activeShift.id },
-        data: {
-          totalExpenseOut: { increment: amount },
-          expectedEndingCash: { decrement: amount },
-        },
-      });
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new BadRequestException('Nominal pengeluaran harus lebih besar dari 0');
     }
 
-    return expense;
+    return this.prisma.runWithAdvisoryLock(88002, async (tx) => {
+      const activeShift = await tx.cashierShift.findFirst({
+        where: { status: 'OPEN' },
+        orderBy: { startTime: 'desc' },
+      });
+
+      const expense = await tx.expense.create({
+        data: {
+          shiftId: activeShift?.id || null,
+          category: body.category || 'OPERASIONAL',
+          description: body.description,
+          amount,
+          recordedBy: body.recordedBy || 'Kasir Front Desk',
+        },
+      });
+
+      if (activeShift) {
+        await tx.cashierShift.update({
+          where: { id: activeShift.id },
+          data: {
+            totalExpenseOut: { increment: amount },
+            expectedEndingCash: { decrement: amount },
+          },
+        });
+      }
+
+      return expense;
+    });
   }
 
   async adjustProductStockOpname(productId: string, body: { newStock: number; notes: string; recordedBy?: string }) {
-    const product = await this.prisma.product.findUnique({ where: { id: productId } });
-    if (!product) throw new NotFoundException('Produk tidak ditemukan');
+    const newStock = Number(body.newStock);
+    if (!Number.isInteger(newStock) || newStock < 0) {
+      throw new BadRequestException('Stok opname baru harus bilangan bulat >= 0');
+    }
 
-    const diff = Number(body.newStock) - product.stock;
-    const updated = await this.prisma.product.update({
-      where: { id: productId },
-      data: { stock: Number(body.newStock) },
+    return this.prisma.runWithAdvisoryLock(88002, async (tx) => {
+      const product = await tx.product.findUnique({ where: { id: productId } });
+      if (!product) throw new NotFoundException('Produk tidak ditemukan');
+
+      const diff = newStock - product.stock;
+      const updated = await tx.product.update({
+        where: { id: productId },
+        data: { stock: newStock },
+      });
+
+      await tx.stockLog.create({
+        data: {
+          productId,
+          changeQty: diff,
+          finalStock: newStock,
+          type: 'OPNAME',
+          notes: body.notes || 'Penyesuaian Stock Opname Manual',
+          recordedBy: body.recordedBy || 'Admin Inventory',
+        },
+      });
+
+      return updated;
     });
-
-    await this.prisma.stockLog.create({
-      data: {
-        productId,
-        changeQty: diff,
-        finalStock: Number(body.newStock),
-        type: 'OPNAME',
-        notes: body.notes || 'Penyesuaian Stock Opname Manual',
-        recordedBy: body.recordedBy || 'Admin Inventory',
-      },
-    });
-
-    return updated;
   }
 
   async createRetailProduct(body: any) {
@@ -196,17 +232,29 @@ export class FinanceService {
       cuti: memberCounts['CUTI'] || 0,
     };
 
-    // 10.2 Peak Hours Heatmap (Jam Sibuk Gym)
-    const peakHoursHeatmap = [
-      { hour: '06:00', visitors: 14, label: 'Pagi Awal' },
-      { hour: '08:00', visitors: 28, label: 'Pagi Ramai' },
-      { hour: '10:00', visitors: 19, label: 'Menjelang Siang' },
-      { hour: '12:00', visitors: 15, label: 'Istirahat Siang' },
-      { hour: '15:00', visitors: 22, label: 'Sore' },
-      { hour: '17:00', visitors: 46, label: 'Peak Pulang Kantor' },
-      { hour: '19:00', visitors: 58, label: 'Peak Utama Malam' },
-      { hour: '21:00', visitors: 24, label: 'Penutupan' },
+    // 10.2 Peak Hours Heatmap (Jam Sibuk Gym dari data check-in aktual WIB)
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const checkInRows = await this.prisma.memberAttendance.findMany({
+      where: { gateStatus: 'ALLOWED', checkInTime: { gte: thirtyDaysAgo } },
+      select: { checkInTime: true },
+    });
+
+    const hourBuckets = [
+      { hour: '06:00', min: 6, max: 7, label: 'Pagi Awal', visitors: 0 },
+      { hour: '08:00', min: 8, max: 9, label: 'Pagi Ramai', visitors: 0 },
+      { hour: '10:00', min: 10, max: 11, label: 'Menjelang Siang', visitors: 0 },
+      { hour: '12:00', min: 12, max: 14, label: 'Istirahat Siang', visitors: 0 },
+      { hour: '15:00', min: 15, max: 16, label: 'Sore', visitors: 0 },
+      { hour: '17:00', min: 17, max: 18, label: 'Peak Pulang Kantor', visitors: 0 },
+      { hour: '19:00', min: 19, max: 20, label: 'Peak Utama Malam', visitors: 0 },
+      { hour: '21:00', min: 21, max: 23, label: 'Penutupan', visitors: 0 },
     ];
+    for (const row of checkInRows) {
+      const h = getJakartaHour(new Date(row.checkInTime));
+      const bucket = hourBuckets.find((b) => h >= b.min && h <= b.max);
+      if (bucket) bucket.visitors++;
+    }
+    const peakHoursHeatmap = hourBuckets.map(({ hour, visitors, label }) => ({ hour, visitors, label }));
 
     return {
       summary: {

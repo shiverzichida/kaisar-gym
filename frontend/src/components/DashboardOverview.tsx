@@ -61,14 +61,38 @@ export default function DashboardOverview({
   const inactiveMembersCount = members.filter((m) => m.status === 'INACTIVE').length;
   const totalMembersCount = members.length;
 
-  // Revenue stats
-  const totalMonthlyRevenue = analyticsData?.summary?.totalRevenue || 3768100;
+  // Revenue stats (real backend values; zero fallback fake revenue)
+  const totalMonthlyRevenue = analyticsData?.summary?.totalRevenue ?? 0;
   const shift = financeData?.activeShift;
-  const todaySales = shift?.expectedEndingCash || 1043100;
+  const todaySales = shift?.expectedEndingCash ?? 0;
 
-  // Today check-ins
-  const todayCheckIns = attendanceLogs?.recentLogs?.length ? attendanceLogs.recentLogs.length * 35 + 32 : 312;
-  const expiringCount = 3;
+  // Today check-ins (WIB calendar day)
+  const todayWibKey = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Jakarta',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+  const todayCheckIns = Array.isArray(attendanceLogs?.recentLogs)
+    ? attendanceLogs.recentLogs.filter((l: any) => {
+        if (!l.checkInTime) return false;
+        const dKey = new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'Asia/Jakarta',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+        }).format(new Date(l.checkInTime));
+        return dKey === todayWibKey && l.gateStatus !== 'DENIED';
+      }).length
+    : 0;
+
+  const nowMs = Date.now();
+  const expiringCount = members.filter((m) => {
+    const end = m.subscriptions?.[0]?.endDate;
+    if (!end) return false;
+    const diffDays = Math.ceil((new Date(end).getTime() - nowMs) / (1000 * 60 * 60 * 24));
+    return diffDays >= -7 && diffDays <= 7;
+  }).length;
 
   const todayFormatted = new Intl.DateTimeFormat('id-ID', {
     weekday: 'long',

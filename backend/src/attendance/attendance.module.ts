@@ -72,19 +72,21 @@ export class AttendanceService {
     let latestSub = member.subscriptions[0];
     const now = new Date();
 
-    // Auto-activate member if activation date has arrived
+    // Auto-activate member atomically if activation date has arrived
     if (member.status === 'PENDING_ACTIVATION' && latestSub) {
       const subStart = new Date(latestSub.startDate);
       const subEnd = new Date(latestSub.endDate);
       if (subStart <= now && subEnd >= now) {
-        await this.prisma.member.update({
-          where: { id: member.id },
-          data: { status: 'ACTIVE', parkingActive: true },
-        });
-        await this.prisma.memberSubscription.update({
-          where: { id: latestSub.id },
-          data: { status: 'ACTIVE' },
-        });
+        await this.prisma.$transaction([
+          this.prisma.member.update({
+            where: { id: member.id },
+            data: { status: 'ACTIVE', parkingActive: true },
+          }),
+          this.prisma.memberSubscription.update({
+            where: { id: latestSub.id },
+            data: { status: 'ACTIVE' },
+          }),
+        ]);
         member.status = 'ACTIVE';
       }
     }

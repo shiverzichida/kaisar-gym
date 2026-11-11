@@ -1,5 +1,6 @@
 import { BadRequestException, Body, Controller, Delete, Get, Injectable, Module, NotFoundException, Param, Patch, Post, Put, Query } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { getJakartaMonthKey } from '../common/jakarta-time';
 
 @Injectable()
 export class TrainersService {
@@ -307,12 +308,14 @@ export class TrainersService {
   }
 
   async deleteTrainer(id: string) {
-    await this.prisma.classScheduleTemplate.deleteMany({ where: { trainerId: id } });
-    await this.prisma.classSchedule.deleteMany({ where: { trainerId: id } });
-    await this.prisma.ptSessionLog.deleteMany({ where: { contract: { trainerId: id } } });
-    await this.prisma.memberPtContract.deleteMany({ where: { trainerId: id } });
-    await this.prisma.salaryRequest.deleteMany({ where: { trainerId: id } });
-    await this.prisma.trainer.delete({ where: { id } });
+    await this.prisma.$transaction(async (tx) => {
+      await tx.classScheduleTemplate.deleteMany({ where: { trainerId: id } });
+      await tx.classSchedule.deleteMany({ where: { trainerId: id } });
+      await tx.ptSessionLog.deleteMany({ where: { contract: { trainerId: id } } });
+      await tx.memberPtContract.deleteMany({ where: { trainerId: id } });
+      await tx.salaryRequest.deleteMany({ where: { trainerId: id } });
+      await tx.trainer.delete({ where: { id } });
+    });
     return { success: true, message: 'Trainer berhasil dihapus' };
   }
 
@@ -325,31 +328,47 @@ export class TrainersService {
     signedOffBy?: string;
     forceOverride?: boolean;
   }) {
-    const contract = await this.prisma.memberPtContract.findUnique({
-      where: { id: body.contractId },
-      include: { member: true, trainer: true },
-    });
-    if (!contract) throw new NotFoundException('Kontrak sesi PT tidak ditemukan');
-    if (contract.remainingSessions <= 0) {
-      throw new BadRequestException('Kuota sesi PT member ini sudah habis (0 sesi tersisa)');
-    }
+    const txResult = await this.prisma.runWithAdvisoryLock(`pt_contract:${body.contractId}`, async (tx) => {
+      const contract = await tx.memberPtContract.findUnique({
+        where: { id: body.contractId },
+        include: { member: true, trainer: true },
+      });
+      if (!contract) throw new NotFoundException('Kontrak sesi PT tidak ditemukan');
+      if (contract.status !== 'ACTIVE') {
+        throw new BadRequestException(`Kontrak PT berstatus ${contract.status} dan tidak dapat di-sign-off`);
+      }
+      if (contract.expiryDate && new Date(contract.expiryDate) < new Date()) {
+        throw new BadRequestException('Masa berlaku kontrak PT ini sudah kadaluwarsa');
+      }
+      if (contract.remainingSessions <= 0) {
+        throw new BadRequestException('Kuota sesi PT member ini sudah habis (0 sesi tersisa)');
+      }
 
-    // Prevent accidental double-click sign-off within 5 seconds
-    const fiveSecsAgo = new Date(Date.now() - 5 * 1000);
-    const duplicate = await this.prisma.ptSessionLog.findFirst({
-      where: {
-        contractId: contract.id,
-        sessionDate: { gte: fiveSecsAgo },
-      },
-    });
-    if (duplicate && !body.forceOverride) {
-      throw new BadRequestException('Sesi latihan untuk klien ini baru saja di-sign-off beberapa detik lalu (Proteksi Klik Ganda)');
-    }
+      // Prevent accidental double-click sign-off within 5 seconds
+      const fiveSecsAgo = new Date(Date.now() - 5 * 1000);
+      const duplicate = await tx.ptSessionLog.findFirst({
+        where: {
+          contractId: contract.id,
+          sessionDate: { gte: fiveSecsAgo },
+        },
+      });
+      if (duplicate && !body.forceOverride) {
+        throw new BadRequestException('Sesi latihan untuk klien ini baru saja di-sign-off beberapa detik lalu (Proteksi Klik Ganda)');
+      }
 
-    const newRemaining = contract.remainingSessions - 1;
+      const newRemaining = contract.remainingSessions - 1;
+      const decResult = await tx.memberPtContract.updateMany({
+        where: { id: contract.id, status: 'ACTIVE', remainingSessions: { gt: 0 } },
+        data: {
+          remainingSessions: { decrement: 1 },
+          status: newRemaining === 0 ? 'COMPLETED' : 'ACTIVE',
+        },
+      });
+      if (decResult.count === 0) {
+        throw new BadRequestException('Kuota sesi PT tidak dapat dipotong (kontrak berubah status atau habis)');
+      }
 
-    const [log, updatedContract] = await this.prisma.$transaction([
-      this.prisma.ptSessionLog.create({
+      const log = await tx.ptSessionLog.create({
         data: {
           contractId: contract.id,
           memberId: contract.memberId,
@@ -360,15 +379,13 @@ export class TrainersService {
           signedOffBy: body.signedOffBy || contract.trainer.fullName,
         },
         include: { member: true, trainer: true },
-      }),
-      this.prisma.memberPtContract.update({
-        where: { id: contract.id },
-        data: {
-          remainingSessions: newRemaining,
-          status: newRemaining === 0 ? 'COMPLETED' : 'ACTIVE',
-        },
-      }),
-    ]);
+      });
+      const updatedContract = await tx.memberPtContract.findUnique({ where: { id: contract.id } });
+
+      return { contract, log, updatedContract };
+    });
+
+    const { contract, log, updatedContract } = txResult;
 
     await this.prisma.logAudit({
       userName: body.signedOffBy || contract.trainer.fullName,
@@ -377,7 +394,7 @@ export class TrainersService {
       entityName: 'PtSessionLog',
       entityId: log.id,
       beforeJson: { remainingSessions: contract.remainingSessions },
-      afterJson: { remainingSessions: newRemaining, musclesTrained: body.musclesTrained },
+      afterJson: { remainingSessions: updatedContract?.remainingSessions ?? 0, musclesTrained: body.musclesTrained },
     });
 
     return { log, updatedContract };
@@ -474,10 +491,13 @@ export class TrainersService {
     if (!pkg) {
       pkg = await this.prisma.ptPackage.findFirst({ where: { isActive: true }, orderBy: { sessionCount: 'asc' } });
     }
+    if (!pkg) {
+      throw new BadRequestException('Tidak ada paket PT aktif yang tersedia di sistem');
+    }
 
-    const totalSessions = Number(body.totalSessions || pkg?.sessionCount || 12);
-    const validityDays = Number(body.validityDays || pkg?.validityDays || 60);
-    const normalPrice = Number(body.normalPrice !== undefined ? body.normalPrice : pkg?.price || 2000000);
+    const totalSessions = Number(body.totalSessions || pkg.sessionCount);
+    const validityDays = Number(body.validityDays || pkg.validityDays);
+    const normalPrice = Number(body.normalPrice !== undefined ? body.normalPrice : pkg.price);
     const discountPct = Number(body.discountPct || 0);
     const totalPrice = Number(body.totalPrice !== undefined ? body.totalPrice : Math.round(normalPrice * (1 - discountPct / 100)));
 
@@ -488,7 +508,7 @@ export class TrainersService {
       data: {
         memberId: body.memberId,
         trainerId: body.trainerId,
-        ptPackageId: pkg?.id || '',
+        ptPackageId: pkg.id,
         totalSessions,
         remainingSessions: totalSessions,
         normalPrice,
@@ -672,29 +692,50 @@ export class TrainersService {
     completedSessions?: number;
     notes?: string;
   }) {
-    const all = await this.findAll();
-    const trainer = all.find((t) => t.id === body.trainerId);
+    const trainer = await this.prisma.trainer.findUnique({
+      where: { id: body.trainerId },
+      include: {
+        ptContracts: { include: { ptPackage: true, member: true } },
+        ptSessionLogs: true,
+      },
+    });
     if (!trainer) throw new NotFoundException('Trainer tidak ditemukan');
 
-    const completedSessions =
-      body.completedSessions !== undefined
-        ? body.completedSessions
-        : trainer.metrics.completedSessionsThisMonth;
+    const monthYear = body.monthYear || getJakartaMonthKey();
+    const existingClaim = await this.prisma.salaryRequest.findFirst({
+      where: {
+        trainerId: trainer.id,
+        monthYear,
+        status: { in: ['PENDING', 'APPROVED_MANAGER', 'PAID'] },
+      },
+    });
+    if (existingClaim) {
+      throw new BadRequestException(`Pengajuan gaji untuk periode ${monthYear} sudah ada (Status: ${existingClaim.status})`);
+    }
+
+    const comm = this.calculateFlatCommission(trainer.ptContracts);
+    const completedSessions = Math.max(trainer.ptSessionLogs.length, comm.completedSessionsCount);
+
+    const requestedAmount = body.amount !== undefined ? Number(body.amount) : undefined;
     const totalAmount =
-      body.amount !== undefined && body.amount > 0
-        ? body.amount
-        : (trainer.metrics.totalEstimatedTakeHome > 0
-            ? trainer.metrics.totalEstimatedTakeHome
-            : 2650000);
+      comm.earnedPtCommission > 0
+        ? comm.earnedPtCommission
+        : requestedAmount && Number.isFinite(requestedAmount) && requestedAmount > 0
+        ? requestedAmount
+        : 0;
+
+    if (!Number.isFinite(totalAmount) || totalAmount <= 0) {
+      throw new BadRequestException('Belum ada komisi PT yang dapat diklaim pada periode ini');
+    }
 
     return this.prisma.salaryRequest.create({
       data: {
         trainerId: trainer.id,
-        monthYear: body.monthYear || '2026-10',
-        completedSessions: completedSessions || 0,
+        monthYear,
+        completedSessions,
         sessionCommission: totalAmount,
         salesCommission: 0,
-        totalAmount: totalAmount,
+        totalAmount,
         status: 'PENDING',
         notes: body.notes || 'Klaim transfer komisi bagi hasil 50% Kaisar Gym',
       },
@@ -713,27 +754,47 @@ export class TrainersService {
   }
 
   async updateSalaryRequestStatus(id: string, body: { status: string; approvedBy?: string; notes?: string }) {
-    const existing = await this.prisma.salaryRequest.findUnique({ where: { id } });
-    if (!existing) throw new NotFoundException('Pengajuan gaji tidak ditemukan');
+    const validTargets = new Set(['PENDING', 'APPROVED_MANAGER', 'PAID', 'REJECTED']);
+    if (!validTargets.has(body.status)) {
+      throw new BadRequestException(`Status pengajuan gaji tidak valid: ${body.status}`);
+    }
 
-    return this.prisma.salaryRequest.update({
-      where: { id },
-      data: {
-        status: body.status,
-        approvedBy: body.approvedBy || 'Manager Operasional (POS)',
-        ...(body.notes ? { notes: body.notes } : {}),
-      },
-      include: {
-        trainer: {
-          select: {
-            id: true,
-            code: true,
-            fullName: true,
-            phone: true,
-            specialization: true,
+    return this.prisma.runWithAdvisoryLock(`salary_req:${id}`, async (tx) => {
+      const existing = await tx.salaryRequest.findUnique({ where: { id } });
+      if (!existing) throw new NotFoundException('Pengajuan gaji tidak ditemukan');
+
+      const allowedTransitions: Record<string, string[]> = {
+        PENDING: ['APPROVED_MANAGER', 'PAID', 'REJECTED'],
+        APPROVED_MANAGER: ['PAID', 'REJECTED'],
+        PAID: [],
+        REJECTED: [],
+      };
+      const validNext = allowedTransitions[existing.status] || [];
+      if (existing.status !== body.status && !validNext.includes(body.status)) {
+        throw new BadRequestException(
+          `Transisi status pengajuan gaji dari ${existing.status} ke ${body.status} tidak diizinkan`,
+        );
+      }
+
+      return tx.salaryRequest.update({
+        where: { id },
+        data: {
+          status: body.status,
+          approvedBy: body.approvedBy || 'Manager Operasional (POS)',
+          ...(body.notes ? { notes: body.notes } : {}),
+        },
+        include: {
+          trainer: {
+            select: {
+              id: true,
+              code: true,
+              fullName: true,
+              phone: true,
+              specialization: true,
+            },
           },
         },
-      },
+      });
     });
   }
 }

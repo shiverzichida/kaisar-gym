@@ -76,8 +76,20 @@ export default function CoachPortalPage() {
   const [showVersionModal, setShowVersionModal] = useState(false);
   const [showTutorialModal, setShowTutorialModal] = useState(false);
 
+  const jakartaToday = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
+  const jakartaMonthKey = jakartaToday.slice(0, 7);
+  const periodOptions = Array.from({ length: 3 }, (_, idx) => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - idx);
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'long',
+      year: 'numeric',
+      timeZone: 'Asia/Jakarta',
+    }).format(d);
+  });
+
   // Period filter
-  const [selectedPeriod, setSelectedPeriod] = useState('October 2026');
+  const [selectedPeriod, setSelectedPeriod] = useState(periodOptions[0]);
 
   // Loading & data states
   const [loading, setLoading] = useState(false);
@@ -101,8 +113,8 @@ export default function CoachPortalPage() {
   const [showNewScheduleModal, setShowNewScheduleModal] = useState(false);
   const [newScheduleForm, setNewScheduleForm] = useState({
     memberId: '',
-    memberName: 'Jessica Lee',
-    date: '2026-10-23',
+    memberName: '',
+    date: jakartaToday,
     time: '16:00',
     focusArea: 'Lower Body & Core',
   });
@@ -119,14 +131,14 @@ export default function CoachPortalPage() {
   const [showSlipModal, setShowSlipModal] = useState(false);
   const [payoutForm, setPayoutForm] = useState({
     amount: 0,
-    monthYear: '2026-10',
+    monthYear: jakartaMonthKey,
     bankName: 'Bank Central Asia (BCA)',
     accountNumber: '029-8877-665',
-    accountName: 'Coach Hendra Pratama',
+    accountName: user?.fullName || 'Coach Hendra Pratama',
     notes: 'Klaim transfer komisi sesi PT 50% Flat Kaisar Gym',
   });
 
-  // Current logged in coach (defaults to Coach Hendra TR-001)
+  // Current logged in coach (defaults to Coach Hendra TR-001 in demo mode)
   const currentCoach = user || {
     id: 'd4300469-6528-41a0-9516-6e44a0754a1e',
     fullName: 'Coach Hendra Pratama',
@@ -136,94 +148,8 @@ export default function CoachPortalPage() {
     email: 'hendra.pratama@kaisargym.com',
   };
 
-  // Client contracts state
-  const [clients, setClients] = useState<any[]>([
-    {
-      id: 'cl-1',
-      contractId: 'cnt-101',
-      name: 'Jessica Lee',
-      phone: '0812-3456-7890',
-      photo: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-      packageName: '12 Sesi Personal Trainer',
-      totalSessions: 12,
-      completedSessions: 8,
-      remainingSessions: 4,
-      status: 'Aktif',
-      unitPricePerSession: 350000,
-      ptSessionFee: 175000,
-      contractEarnedPt: 1400000,
-      goal: 'Fat Loss 4kg & Posture Correction',
-      joinDate: '05 Oct 2026',
-    },
-    {
-      id: 'cl-2',
-      contractId: 'cnt-102',
-      name: 'Budi Santoso',
-      phone: '0813-8899-2211',
-      photo: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-      packageName: '24 Sesi Elite Transformation',
-      totalSessions: 24,
-      completedSessions: 14,
-      remainingSessions: 10,
-      status: 'Aktif',
-      unitPricePerSession: 320000,
-      ptSessionFee: 160000,
-      contractEarnedPt: 2240000,
-      goal: 'Muscle Hypertrophy & Deadlift 120kg',
-      joinDate: '12 Sep 2026',
-    },
-    {
-      id: 'cl-3',
-      contractId: 'cnt-103',
-      name: 'Stevany Wijaya',
-      phone: '0857-1122-3344',
-      photo: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80',
-      packageName: '12 Sesi Pilates & Conditioning',
-      totalSessions: 12,
-      completedSessions: 11,
-      remainingSessions: 1,
-      status: 'Aktif',
-      unitPricePerSession: 350000,
-      ptSessionFee: 175000,
-      contractEarnedPt: 1925000,
-      goal: 'Core Strength & Pelvic Stability',
-      joinDate: '28 Sep 2026',
-    },
-    {
-      id: 'cl-4',
-      contractId: 'cnt-104',
-      name: 'Kevin Tanujaya',
-      phone: '0819-3344-5566',
-      photo: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
-      packageName: '12 Sesi Personal Trainer',
-      totalSessions: 12,
-      completedSessions: 6,
-      remainingSessions: 6,
-      status: 'Aktif',
-      unitPricePerSession: 350000,
-      ptSessionFee: 175000,
-      contractEarnedPt: 1050000,
-      goal: 'Shoulder Rehabilitation & Bulk',
-      joinDate: '02 Oct 2026',
-    },
-    {
-      id: 'cl-5',
-      contractId: 'cnt-105',
-      name: 'Grace Natalie',
-      phone: '0812-7788-9900',
-      photo: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80',
-      packageName: '12 Sesi Personal Trainer',
-      totalSessions: 12,
-      completedSessions: 3,
-      remainingSessions: 9,
-      status: 'Aktif',
-      unitPricePerSession: 350000,
-      ptSessionFee: 175000,
-      contractEarnedPt: 525000,
-      goal: 'Cardio Stamina & Glute Toning',
-      joinDate: '15 Oct 2026',
-    },
-  ]);
+  // Client contracts state (populated from live backend)
+  const [clients, setClients] = useState<any[]>([]);
 
   // Client search and filter state
   const [clientSearch, setClientSearch] = useState('');
@@ -249,32 +175,40 @@ export default function CoachPortalPage() {
 
       if (found) {
         setCoachData(found);
-        if (found.contractBreakdown && found.contractBreakdown.length > 0) {
-          const backendList = found.contractBreakdown.map((b: any, idx: number) => ({
-            id: b.contractId || `cl-${idx + 10}`,
-            contractId: b.contractId,
-            name: b.memberName,
-            phone: '0812-XXXX-XXXX',
-            photo: `https://images.unsplash.com/photo-${1534528741775 + idx * 1000}?w=150&auto=format&fit=crop&q=80`,
-            packageName: b.packageName,
-            totalSessions: b.totalSessions,
-            completedSessions: b.completedSessions,
-            remainingSessions: b.remainingSessions,
-            status: 'Aktif',
-            unitPricePerSession: b.unitPricePerSession || 350000,
-            ptSessionFee: b.ptSessionFee || 175000,
-            contractEarnedPt: b.contractEarnedPt || 0,
-            goal: 'Fitness & Body Transformation',
-            joinDate: '10 Oct 2026',
-          }));
-          setClients(backendList);
-        }
+        const breakdown = Array.isArray(found.contractBreakdown) ? found.contractBreakdown : [];
+        const backendList = breakdown.map((b: any, idx: number) => ({
+          id: b.contractId || `cl-${idx + 10}`,
+          contractId: b.contractId,
+          name: b.memberName,
+          phone: b.memberPhone || '-',
+          photo: '/assets/img/kaisar-gym-logo-circle.png',
+          packageName: b.packageName,
+          totalSessions: b.totalSessions,
+          completedSessions: b.completedSessions,
+          remainingSessions: b.remainingSessions,
+          status: b.status === 'PAUSED' ? 'Cuti' : 'Aktif',
+          unitPricePerSession: b.unitPricePerSession || 0,
+          ptSessionFee: b.ptSessionFee || 0,
+          contractEarnedPt: b.contractEarnedPt || 0,
+          goal: b.goal || 'Fitness & Body Transformation',
+          joinDate: b.startDate
+            ? new Date(b.startDate).toLocaleDateString('id-ID', {
+                timeZone: 'Asia/Jakarta',
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+              })
+            : '-',
+        }));
+        setClients(backendList);
 
-        const calculatedKomisi = found?.metrics?.earnedPtCommission || 2650000;
+        const calculatedKomisi = found?.metrics?.earnedPtCommission ?? 0;
         setPayoutForm((prev) => ({
           ...prev,
           amount: prev.amount > 0 ? prev.amount : calculatedKomisi,
         }));
+      } else {
+        setClients([]);
       }
 
       // Filter classes assigned to this coach
@@ -331,7 +265,12 @@ export default function CoachPortalPage() {
 
     try {
       const coachId = coachData?.id || currentCoach.id;
-      const nominal = Number(payoutForm.amount) || 2650000;
+      const nominal = Number(payoutForm.amount || 0);
+      if (nominal <= 0) {
+        setErrorMsg('Nominal pengajuan transfer harus lebih dari Rp 0.');
+        setSubmittingPayout(false);
+        return;
+      }
       const totalSessionsCompleted =
         coachData?.metrics?.completedSessionsThisMonth ||
         clients.reduce((acc, c) => acc + c.completedSessions, 0);
@@ -342,7 +281,7 @@ export default function CoachPortalPage() {
         method: 'POST',
         body: JSON.stringify({
           trainerId: coachId,
-          monthYear: payoutForm.monthYear || '2026-10',
+          monthYear: payoutForm.monthYear || jakartaMonthKey,
           amount: nominal,
           completedSessions: totalSessionsCompleted,
           notes: fullNotes,
@@ -437,17 +376,18 @@ export default function CoachPortalPage() {
     return matchSearch && matchStatus;
   });
 
-  // Dynamic metrics from coach data or clients
+  // Dynamic metrics from live coach data & active contracts
   const totalCompletedSessions =
+    coachData?.metrics?.completedSessionsThisMonth ??
     coachData?.metrics?.completedSessionsCount ??
-    clients.reduce((acc, c) => acc + c.completedSessions, 0) + 40;
-  const activeClientsCount = coachData?.metrics?.contractBreakdown?.length || 17;
-  const membersActiveMonth = clients.filter((c) => c.status === 'Aktif').length || 16;
-  const cutiCount = 0;
-  const omsetBaru = coachData?.metrics?.totalContractValue || 3500000;
+    clients.reduce((acc, c) => acc + c.completedSessions, 0);
+  const activeClientsCount = coachData?.metrics?.activeClientsCount ?? clients.length;
+  const membersActiveMonth = clients.filter((c) => c.status === 'Aktif').length;
+  const cutiCount = clients.filter((c) => c.status === 'Cuti').length;
+  const omsetBaru = coachData?.metrics?.totalContractValue ?? 0;
   const komisiLiquid =
     coachData?.metrics?.earnedPtCommission ??
-    clients.reduce((acc, c) => acc + c.contractEarnedPt, 0) + 2650000;
+    clients.reduce((acc, c) => acc + c.contractEarnedPt, 0);
 
   return (
     <div className="min-h-screen bg-[#070D1E] text-slate-100 flex flex-col font-sans selection:bg-[#FFC067] selection:text-slate-950">
@@ -778,9 +718,11 @@ export default function CoachPortalPage() {
                   onChange={(e) => setSelectedPeriod(e.target.value)}
                   className="appearance-none bg-[#0F172A] border border-white/15 text-white text-xs font-bold rounded-xl px-3.5 py-2 pr-8 focus:outline-none focus:border-[#FFC067] cursor-pointer"
                 >
-                  <option value="October 2026">October 2026</option>
-                  <option value="September 2026">September 2026</option>
-                  <option value="August 2026">August 2026</option>
+                  {periodOptions.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
                 </select>
                 <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
@@ -1122,58 +1064,51 @@ export default function CoachPortalPage() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {(assignedStudioClasses.length > 0
-                    ? assignedStudioClasses
-                    : [
-                        {
-                          id: 'sc-1',
-                          scheduleDate: '2026-10-22',
-                          startTime: '18:30',
-                          endTime: '19:30',
-                          studioClass: { name: 'STRENGTH & CONDITIONING', roomName: 'Main Studio 1' },
-                          bookedCount: 18,
-                          maxCapacity: 20,
-                        },
-                      ]
-                  ).map((sc: any) => (
-                    <div
-                      key={sc.id}
-                      className="rounded-2xl border border-white/10 bg-[#070D1E] p-5 space-y-3 hover:border-[#FFC067]/40 transition"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#FFC067]/20 text-[#FFC067]">
-                          {formatDateId(sc.scheduleDate)}
-                        </span>
-                        <span className="text-xs text-slate-400">
-                          {sc.startTime} - {sc.endTime} WIB
-                        </span>
-                      </div>
-                      <h3 className="font-black text-white text-sm">
-                        {sc.studioClass?.name || 'STUDIO CLASS'}
-                      </h3>
-                      <div className="text-xs text-slate-400 space-y-1">
-                        <div>
-                          Ruang: <strong className="text-slate-200">{sc.studioClass?.roomName || 'Studio 1'}</strong>
-                        </div>
-                        <div>
-                          Peserta Terdaftar:{' '}
-                          <strong className="text-cyan-400">
-                            {sc.bookedCount || 0} / {sc.maxCapacity || 20} Member
-                          </strong>
-                        </div>
-                      </div>
-                      <div className="pt-2 border-t border-white/5 flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-emerald-400">Status: OPEN</span>
-                        <button
-                          type="button"
-                          onClick={() => alert('Daftar presensi peserta siap diverifikasi.')}
-                          className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-slate-300"
-                        >
-                          Presensi Kelas
-                        </button>
-                      </div>
+                  {assignedStudioClasses.length === 0 ? (
+                    <div className="col-span-full rounded-2xl border border-dashed border-white/10 bg-[#070D1E] p-6 text-center text-xs text-slate-400">
+                      Belum ada jadwal kelas studio yang ditugaskan untuk Anda saat ini.
                     </div>
-                  ))}
+                  ) : (
+                    assignedStudioClasses.map((sc: any) => (
+                      <div
+                        key={sc.id}
+                        className="rounded-2xl border border-white/10 bg-[#070D1E] p-5 space-y-3 hover:border-[#FFC067]/40 transition"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#FFC067]/20 text-[#FFC067]">
+                            {formatDateId(sc.scheduleDate)}
+                          </span>
+                          <span className="text-xs text-slate-400">
+                            {sc.startTime} - {sc.endTime} WIB
+                          </span>
+                        </div>
+                        <h3 className="font-black text-white text-sm">
+                          {sc.studioClass?.name || 'STUDIO CLASS'}
+                        </h3>
+                        <div className="text-xs text-slate-400 space-y-1">
+                          <div>
+                            Ruang: <strong className="text-slate-200">{sc.studioClass?.roomName || 'Studio 1'}</strong>
+                          </div>
+                          <div>
+                            Peserta Terdaftar:{' '}
+                            <strong className="text-cyan-400">
+                              {sc.bookedCount || 0} / {sc.maxCapacity || 20} Member
+                            </strong>
+                          </div>
+                        </div>
+                        <div className="pt-2 border-t border-white/5 flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-emerald-400">Status: {sc.status || 'OPEN'}</span>
+                          <button
+                            type="button"
+                            onClick={() => alert('Daftar presensi peserta siap diverifikasi.')}
+                            className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-slate-300"
+                          >
+                            Presensi Kelas
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             </div>
@@ -1488,7 +1423,7 @@ export default function CoachPortalPage() {
                       onClick={() => {
                         setPayoutForm((prev) => ({
                           ...prev,
-                          amount: komisiLiquid > 0 ? komisiLiquid : 2650000,
+                          amount: komisiLiquid,
                         }));
                         setIsPayoutModalOpen(true);
                       }}
@@ -2297,7 +2232,7 @@ export default function CoachPortalPage() {
                       value={payoutForm.monthYear}
                       onChange={(e) => setPayoutForm({ ...payoutForm, monthYear: e.target.value })}
                       required
-                      placeholder="2026-10"
+                      placeholder={jakartaMonthKey}
                       className="w-full rounded-xl bg-[#070D1E] border border-white/10 px-3.5 py-2.5 text-white font-mono focus:outline-none focus:border-[#FFC067]"
                     />
                   </div>

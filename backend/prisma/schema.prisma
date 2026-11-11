@@ -55,6 +55,9 @@ model Member {
   classBookings     ClassBooking[]
   attendances       MemberAttendance[]
   transactions      PosTransaction[]
+
+  @@index([status, createdAt])
+  @@index([groupMembershipId])
 }
 
 model MembershipPackage {
@@ -88,6 +91,9 @@ model MemberSubscription {
   member      Member            @relation(fields: [memberId], references: [id], onDelete: Cascade)
   package     MembershipPackage @relation(fields: [packageId], references: [id])
   leaves      MemberLeave[]
+
+  @@index([memberId, status, endDate])
+  @@index([status, endDate])
 }
 
 model MemberLeave {
@@ -105,6 +111,9 @@ model MemberLeave {
 
   member         Member             @relation(fields: [memberId], references: [id], onDelete: Cascade)
   subscription   MemberSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([memberId, status])
+  @@index([subscriptionId])
 }
 
 model GroupMembership {
@@ -152,6 +161,8 @@ model StockLog {
   createdAt  DateTime @default(now())
 
   product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, createdAt])
 }
 
 model Trainer {
@@ -211,6 +222,9 @@ model MemberPtContract {
   trainer           Trainer        @relation(fields: [trainerId], references: [id])
   ptPackage         PtPackage      @relation(fields: [ptPackageId], references: [id])
   sessionLogs       PtSessionLog[]
+
+  @@index([memberId, status])
+  @@index([trainerId, status])
 }
 
 model PtSessionLog {
@@ -228,6 +242,10 @@ model PtSessionLog {
   contract         MemberPtContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
   member           Member           @relation(fields: [memberId], references: [id], onDelete: Cascade)
   trainer          Trainer          @relation(fields: [trainerId], references: [id])
+
+  @@index([contractId, sessionDate])
+  @@index([trainerId, sessionDate])
+  @@index([memberId])
 }
 
 model SalaryRequest {
@@ -245,6 +263,8 @@ model SalaryRequest {
   updatedAt         DateTime @updatedAt
 
   trainer           Trainer  @relation(fields: [trainerId], references: [id])
+
+  @@index([trainerId, monthYear, status])
 }
 
 model StudioClass {
@@ -291,6 +311,10 @@ model ClassSchedule {
   studioClass   StudioClass    @relation(fields: [studioClassId], references: [id])
   trainer       Trainer        @relation(fields: [trainerId], references: [id])
   bookings      ClassBooking[]
+
+  @@index([scheduleDate, status])
+  @@index([studioClassId])
+  @@index([trainerId])
 }
 
 model ClassBooking {
@@ -303,6 +327,9 @@ model ClassBooking {
 
   schedule   ClassSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
   member     Member        @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([scheduleId, status])
+  @@index([memberId, status])
 }
 
 model PosTransaction {
@@ -330,6 +357,10 @@ model PosTransaction {
   member         Member?              @relation(fields: [memberId], references: [id])
   shift          CashierShift?        @relation(fields: [shiftId], references: [id])
   items          PosTransactionItem[]
+
+  @@index([createdAt, paymentStatus])
+  @@index([memberId])
+  @@index([shiftId])
 }
 
 model PosTransactionItem {
@@ -344,6 +375,8 @@ model PosTransactionItem {
   trainerId     String?        // Optional trainer assignment for PT package
 
   transaction   PosTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@index([transactionId, itemType])
 }
 
 model CashierShift {
@@ -363,6 +396,8 @@ model CashierShift {
 
   transactions       PosTransaction[]
   expenses           Expense[]
+
+  @@index([status, startTime])
 }
 
 model Expense {
@@ -376,6 +411,8 @@ model Expense {
   createdAt   DateTime      @default(now())
 
   shift       CashierShift? @relation(fields: [shiftId], references: [id])
+
+  @@index([shiftId, createdAt])
 }
 
 model MemberAttendance {
@@ -387,6 +424,9 @@ model MemberAttendance {
   denialReason String?
 
   member       Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([memberId, checkInTime])
+  @@index([checkInTime])
 }
 
 model StaffAttendance {
@@ -438,4 +478,7 @@ model AuditLog {
   beforeJson Json?
   afterJson  Json?
   createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([entityName, entityId])
 }

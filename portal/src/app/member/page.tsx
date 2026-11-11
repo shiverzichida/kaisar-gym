@@ -208,38 +208,8 @@ export default function MemberPortalPage() {
     status: b.status,
   }));
 
-  // Fallback studio classes if backend list is empty
-  const displayClasses =
-    studioClassesList.length > 0
-      ? studioClassesList
-      : [
-          {
-            id: 'cls-fallback-1',
-            title: 'PILATES REFORMER CORE & POSTURE',
-            category: 'Pilates Reformer',
-            coachName: 'Coach Mei',
-            coachTitle: 'Pilates Specialist',
-            coachPhoto: '/assets/coaches/sarah-wijaya.jpg',
-            dateTime: 'Wed, 22 Oct 2026 • 18:30 - 19:30 WIB',
-            room: 'Pilates Sanctuary - Level 2',
-            totalSlots: 8,
-            bookedSlots: 4,
-            isEnded: false,
-          },
-          {
-            id: 'cls-fallback-2',
-            title: 'STRENGTH & CONDITIONING CIRCUIT',
-            category: 'Strength & Conditioning',
-            coachName: 'Coach Hendra',
-            coachTitle: 'Strength Specialist',
-            coachPhoto: '/assets/coaches/hendra-pratama.jpg',
-            dateTime: 'Wed, 22 Oct 2026 • 19:45 - 20:45 WIB',
-            room: 'Main Studio 1 - Ground Floor',
-            totalSlots: 20,
-            bookedSlots: 17,
-            isEnded: false,
-          },
-        ];
+  // Real studio classes from backend (empty state when none available)
+  const displayClasses = studioClassesList;
 
   // ══════════════ 2. REAL CONNECTED CLASS BOOKING (POST /api/classes/book) ══════════════
   const handleConfirmBookClass = async () => {

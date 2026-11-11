@@ -44,15 +44,16 @@ export default function GroupsPage() {
       ]);
       setGroups(grpRes);
       setPackages(catRes?.packages || []);
-      if (catRes?.packages?.length > 0 && !groupForm.packageId) {
-        setGroupForm((prev) => ({ ...prev, packageId: catRes.packages[0].id }));
+      if (catRes?.packages?.length > 0) {
+        setGroupForm((prev) => (prev.packageId ? prev : { ...prev, packageId: catRes.packages[0].id }));
       }
     } catch (err: any) {
       console.error(err);
+      showError(err.message || 'Gagal memuat data grup', 'Gagal Memuat Data');
     } finally {
       setLoading(false);
     }
-  }, [groupForm.packageId]);
+  }, [showError]);
 
   useEffect(() => {
     loadData();

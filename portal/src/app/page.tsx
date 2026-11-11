@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 
 export default function LandingPage() {
+  const posDashboardUrl = process.env.NEXT_PUBLIC_POS_URL || 'https://kaisar.43-173-33-53.sslip.io';
   const [selectedDay, setSelectedDay] = useState<'SENIN' | 'SELASA' | 'RABU' | 'KAMIS' | 'JUMAT' | 'SABTU'>('SENIN');
 
   // Interactive Membership Calculator State (Anti-Slop Authentic Feature)
@@ -187,12 +188,12 @@ export default function LandingPage() {
 
           <div className="flex items-center gap-4 text-xs">
             <a
-              href="https://pos.kaisargym.com"
+              href={posDashboardUrl}
               target="_blank"
               rel="noreferrer"
               className="flex items-center gap-1.5 text-slate-400 hover:text-white transition font-medium"
             >
-              <span>Kasir &amp; POS (pos.kaisargym.com)</span>
+              <span>Kasir &amp; POS Kaisar Gym</span>
               <ExternalLink className="w-3 h-3 text-cyan-400" />
             </a>
           </div>
@@ -411,6 +412,7 @@ export default function LandingPage() {
                   <img
                     src="/assets/img/kaisar-gym-mobile-booking.png"
                     alt="Member Mobile Booking & E-Card"
+                    loading="lazy"
                     className="w-full h-full object-cover"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent" />
@@ -467,6 +469,7 @@ export default function LandingPage() {
                   <img
                     src="/assets/img/kaisar-gym-pt-session.png"
                     alt="PT Coaching Session & Digital Verification"
+                    loading="lazy"
                     className="w-full h-full object-cover"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent" />
@@ -1083,7 +1086,7 @@ export default function LandingPage() {
           <div className="flex items-center gap-5">
             <Link href="/login?tab=member" className="hover:text-slate-300 transition">Portal Member</Link>
             <Link href="/login?tab=coach" className="hover:text-slate-300 transition">Portal Coach PT</Link>
-            <a href="https://pos.kaisargym.com" target="_blank" rel="noreferrer" className="hover:text-slate-300 transition">
+            <a href={posDashboardUrl} target="_blank" rel="noreferrer" className="hover:text-slate-300 transition">
               Dashboard POS Kasir ↗
             </a>
           </div>

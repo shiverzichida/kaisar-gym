@@ -134,7 +134,7 @@ export default function TrainersPage() {
   const [isManualRequestModalOpen, setIsManualRequestModalOpen] = useState(false);
   const [manualRequestForm, setManualRequestForm] = useState({
     trainerId: '',
-    monthYear: '2026-10',
+    monthYear: new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date()).slice(0, 7),
     amount: 0,
     notes: 'Pencairan komisi 50% Flat langsung via Kasir POS',
   });

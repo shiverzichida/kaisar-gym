@@ -184,7 +184,7 @@ export default function ClassesPage() {
   const [viewMode, setViewMode] = useState<'LIST' | 'CALENDAR'>('LIST');
 
   // Google Calendar View state
-  const [calendarDate, setCalendarDate] = useState(new Date(2026, 9, 21)); // Defaults to October 2026 as in screenshot
+  const [calendarDate, setCalendarDate] = useState(new Date());
   const [calendarSubView, setCalendarSubView] = useState<'MONTH' | 'WEEK' | 'DAY' | 'LIST'>('MONTH');
 
   // Filter State
@@ -234,15 +234,19 @@ export default function ClassesPage() {
       setMembers(memRes || []);
       setTrainers(trnRes || []);
 
-      if (clsRes?.studioClasses?.length > 0 && !scheduleForm.studioClassId) {
-        setScheduleForm((prev) => ({
-          ...prev,
-          studioClassId: clsRes.studioClasses[0].id,
-          roomName: clsRes.studioClasses[0].roomName || 'Westfit Studio',
-        }));
+      if (clsRes?.studioClasses?.length > 0) {
+        setScheduleForm((prev) =>
+          prev.studioClassId
+            ? prev
+            : {
+                ...prev,
+                studioClassId: clsRes.studioClasses[0].id,
+                roomName: clsRes.studioClasses[0].roomName || 'Westfit Studio',
+              },
+        );
       }
-      if (trnRes?.length > 0 && !scheduleForm.trainerId) {
-        setScheduleForm((prev) => ({ ...prev, trainerId: trnRes[0].id }));
+      if (trnRes?.length > 0) {
+        setScheduleForm((prev) => (prev.trainerId ? prev : { ...prev, trainerId: trnRes[0].id }));
       }
     } catch (err: any) {
       console.error(err);
@@ -250,7 +254,7 @@ export default function ClassesPage() {
     } finally {
       setLoading(false);
     }
-  }, [scheduleForm.studioClassId, scheduleForm.trainerId, showError]);
+  }, [showError]);
 
   useEffect(() => {
     loadData();

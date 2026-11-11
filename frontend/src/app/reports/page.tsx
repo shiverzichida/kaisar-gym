@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import AppShell from '@/components/AppShell';
 import { apiFetch, formatRp, formatDateId } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/context/ToastContext';
 import {
   BarChart3,
   TrendingUp,
@@ -18,6 +19,7 @@ import {
 
 export default function ReportsPage() {
   const { currentUser } = useAuth();
+  const { showError } = useToast();
   const [analyticsData, setAnalyticsData] = useState<any>(null);
   const [financeData, setFinanceData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -33,10 +35,11 @@ export default function ReportsPage() {
       setFinanceData(finRes);
     } catch (err: any) {
       console.error(err);
+      showError(err?.message || 'Gagal memuat laporan analitik', 'Gagal Memuat Data');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [showError]);
 
   useEffect(() => {
     loadData();

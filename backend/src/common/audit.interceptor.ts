@@ -22,7 +22,7 @@ const AUDIT_ROUTE_MAP: Record<string, AuditRule> = {
 
   // Finance, Inventory & Shifts
   'POST /finance/products': { action: 'CREATE_PRODUCT', entityName: 'Product' },
-  'POST /finance/products/:id/restock': { action: 'RESTOCK_PRODUCT', entityName: 'Product' },
+  'POST /finance/products/:id/opname': { action: 'STOCK_OPNAME', entityName: 'Product' },
   'POST /finance/expenses': { action: 'CREATE_EXPENSE', entityName: 'Expense' },
   'POST /finance/shifts/open': { action: 'OPEN_SHIFT', entityName: 'CashierShift' },
   'POST /finance/shifts/:id/close': { action: 'CLOSE_SHIFT', entityName: 'CashierShift' },
@@ -39,7 +39,7 @@ const AUDIT_ROUTE_MAP: Record<string, AuditRule> = {
   'PUT /trainers/:id': { action: 'UPDATE_TRAINER', entityName: 'Trainer' },
   'DELETE /trainers/:id': { action: 'DELETE_TRAINER', entityName: 'Trainer' },
   'POST /trainers/assignments': { action: 'CREATE_PT_ASSIGNMENT', entityName: 'MemberPtContract' },
-  'PATCH /trainers/assignments/:id/status': { action: 'UPDATE_PT_ASSIGNMENT', entityName: 'MemberPtContract' },
+  'PATCH /trainers/assignments/:id': { action: 'UPDATE_PT_ASSIGNMENT', entityName: 'MemberPtContract' },
   'DELETE /trainers/assignments/:id': { action: 'DELETE_PT_ASSIGNMENT', entityName: 'MemberPtContract' },
   'POST /trainers/salary-requests': { action: 'CREATE_SALARY_REQUEST', entityName: 'TrainerSalaryRequest' },
   'PATCH /trainers/salary-requests/:id/status': { action: 'UPDATE_SALARY_REQUEST', entityName: 'TrainerSalaryRequest' },

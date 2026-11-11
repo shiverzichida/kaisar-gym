@@ -9,35 +9,44 @@ interface DailyDataPoint {
   revenue: number;
 }
 
-const defaultMonthlyData: DailyDataPoint[] = [
-  { date: '2026-10-01', revenue: 23500000 },
-  { date: '2026-10-02', revenue: 14200000 },
-  { date: '2026-10-03', revenue: 18600000 },
-  { date: '2026-10-04', revenue: 7800000 },
-  { date: '2026-10-05', revenue: 42100000 },
-  { date: '2026-10-06', revenue: 31400000 },
-  { date: '2026-10-07', revenue: 27500000 },
-  { date: '2026-10-08', revenue: 18700000 },
-  { date: '2026-10-09', revenue: 27200000 },
-  { date: '2026-10-10', revenue: 29400000 },
-  { date: '2026-10-11', revenue: 3500000 },
-  { date: '2026-10-17', revenue: 1200000 },
-  { date: '2026-10-18', revenue: 2450000 },
-  { date: '2026-10-19', revenue: 3768100 },
-];
-
 export default function MonthlyRevenueChart({
   analyticsData,
 }: {
   analyticsData?: any;
 }) {
-  const [selectedMonth, setSelectedMonth] = useState('October 2026');
+  const [selectedMonth, setSelectedMonth] = useState<string>('ALL');
   const [chartMode, setChartMode] = useState<'line' | 'category'>('line');
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
-  const data = defaultMonthlyData;
-  const maxY = 45000000;
-  const ySteps = [45000000, 40000000, 35000000, 30000000, 25000000, 20000000, 15000000, 10000000, 5000000, 0];
+  // Build real daily revenue series from backend transactions in Asia/Jakarta time
+  const dailyMap = new Map<string, number>();
+  const monthLabels = new Set<string>();
+  const txList: any[] = Array.isArray(analyticsData?.transactions) ? analyticsData.transactions : [];
+  for (const tx of txList) {
+    if (!tx || tx.paymentStatus === 'VOID' || !tx.createdAt) continue;
+    const d = new Date(tx.createdAt);
+    const dateKey = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Jakarta',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(d);
+    const monthKey = dateKey.slice(0, 7);
+    monthLabels.add(monthKey);
+    if (selectedMonth === 'ALL' || monthKey === selectedMonth) {
+      dailyMap.set(dateKey, (dailyMap.get(dateKey) || 0) + Number(tx.grandTotal || 0));
+    }
+  }
+
+  const monthOptions = Array.from(monthLabels).sort().reverse();
+  const data: DailyDataPoint[] = Array.from(dailyMap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, revenue]) => ({ date, revenue }));
+
+  const rawMax = data.reduce((m, d) => Math.max(m, d.revenue), 0);
+  const maxY = Math.max(1000000, Math.ceil(rawMax / 500000) * 500000);
+  const stepUnit = maxY / 5;
+  const ySteps = [0, 1, 2, 3, 4, 5].map((i) => Math.round(i * stepUnit)).reverse();
 
   // SVG Chart Dimensions
   const svgWidth = 900;
@@ -50,9 +59,9 @@ export default function MonthlyRevenueChart({
   const chartW = svgWidth - padLeft - padRight;
   const chartH = svgHeight - padTop - padBottom;
 
-  // Calculate points coordinates
+  // Calculate points coordinates safely (handles 0, 1, or N points)
   const points = data.map((d, i) => {
-    const x = padLeft + (i / (data.length - 1)) * chartW;
+    const x = data.length === 1 ? padLeft + chartW / 2 : padLeft + (i / (data.length - 1)) * chartW;
     const y = padTop + chartH - (d.revenue / maxY) * chartH;
     return { ...d, x, y };
   });
@@ -62,6 +71,7 @@ export default function MonthlyRevenueChart({
   // Build smooth bezier curve path
   const buildSmoothPath = () => {
     if (points.length === 0) return '';
+    if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
     let path = `M ${points[0].x} ${points[0].y}`;
     for (let i = 0; i < points.length - 1; i++) {
       const p0 = points[i];
@@ -73,15 +83,16 @@ export default function MonthlyRevenueChart({
   };
 
   const linePath = buildSmoothPath();
-  const areaPath = points.length > 0
-    ? `${linePath} L ${points[points.length - 1].x} ${padTop + chartH} L ${points[0].x} ${padTop + chartH} Z`
-    : '';
+  const areaPath =
+    points.length > 1
+      ? `${linePath} L ${points[points.length - 1].x} ${padTop + chartH} L ${points[0].x} ${padTop + chartH} Z`
+      : '';
 
-  // Category breakdown
-  const membershipRev = analyticsData?.summary?.membershipRevenue || 1673000;
-  const ptRev = analyticsData?.summary?.ptRevenue || 2100000;
-  const retailRev = analyticsData?.summary?.retailRevenue || 50000;
-  const totalCat = membershipRev + ptRev + retailRev || 3823000;
+  // Category breakdown (real values only)
+  const membershipRev = Number(analyticsData?.summary?.membershipRevenue || 0);
+  const ptRev = Number(analyticsData?.summary?.ptRevenue || 0);
+  const retailRev = Number(analyticsData?.summary?.retailRevenue || 0);
+  const totalCat = membershipRev + ptRev + retailRev || 1;
 
   return (
     <div className="rounded-2xl border border-white/10 bg-[#0F172A] p-5 shadow-lg relative overflow-hidden">
@@ -111,9 +122,12 @@ export default function MonthlyRevenueChart({
                 onChange={(e) => setSelectedMonth(e.target.value)}
                 className="appearance-none bg-[#0F172A] hover:bg-[#1E293B] border border-white/15 focus:border-[#FFC067] text-white text-xs font-bold py-1.5 pl-3 pr-8 rounded-xl cursor-pointer focus:outline-none transition shadow-sm"
               >
-                <option value="October 2026">October 2026</option>
-                <option value="September 2026">September 2026</option>
-                <option value="August 2026">August 2026</option>
+                <option value="ALL">Semua Periode</option>
+                {monthOptions.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
               </select>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
@@ -166,7 +180,12 @@ export default function MonthlyRevenueChart({
             </div>
           </div>
 
-          {/* Responsive SVG Chart */}
+          {/* Responsive SVG Chart or Empty State */}
+          {points.length === 0 ? (
+            <div className="py-12 text-center rounded-xl border border-dashed border-white/10 text-xs text-slate-400">
+              Belum ada data transaksi non-VOID untuk periode yang dipilih.
+            </div>
+          ) : (
           <div className="w-full overflow-x-auto">
             <div className="min-w-[650px] w-full">
               <svg
@@ -320,11 +339,13 @@ export default function MonthlyRevenueChart({
 
                 {/* Transparent Hit Slices - Solid vertical zones that eliminate ANY jittering */}
                 {points.map((pt, idx) => {
-                  const sliceWidth = chartW / (points.length - 1);
+                  const sliceWidth = points.length <= 1 ? chartW : chartW / (points.length - 1);
                   const xStart = idx === 0
                     ? padLeft - 15
                     : pt.x - sliceWidth / 2;
-                  const xSpan = idx === 0 || idx === points.length - 1
+                  const xSpan = points.length <= 1
+                    ? chartW + 30
+                    : idx === 0 || idx === points.length - 1
                     ? sliceWidth / 2 + 15
                     : sliceWidth;
 
@@ -344,6 +365,7 @@ export default function MonthlyRevenueChart({
               </svg>
             </div>
           </div>
+          )}
         </div>
       ) : (
         /* Category Breakdown View */

@@ -6,13 +6,18 @@ import SelfServicePortalsView from '@/components/SelfServicePortalsView';
 import { apiFetch } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 
+import { useToast } from '@/context/ToastContext';
+
 export default function PortalsPage() {
   const { currentUser } = useAuth();
+  const { showError } = useToast();
   const [members, setMembers] = useState<any[]>([]);
   const [trainers, setTrainers] = useState<any[]>([]);
   const [classesData, setClassesData] = useState<any>(null);
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const portalBaseUrl = process.env.NEXT_PUBLIC_PORTAL_URL || 'https://portal-kaisar.43-173-33-53.sslip.io';
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -29,10 +34,11 @@ export default function PortalsPage() {
       setAnnouncements(anRes?.announcements || []);
     } catch (err: any) {
       console.error(err);
+      showError(err?.message || 'Gagal memuat data portal', 'Gagal Memuat Data');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [showError]);
 
   useEffect(() => {
     loadData();
@@ -60,12 +66,12 @@ export default function PortalsPage() {
         </div>
 
         <a
-          href="http://localhost:3001"
+          href={portalBaseUrl}
           target="_blank"
           rel="noreferrer"
           className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#FFC067] to-[#E5A850] text-slate-950 font-black text-xs shadow-gold shrink-0 flex items-center gap-1.5 transition hover:scale-105"
         >
-          <span>Buka kaisargym.com (Port 3001)</span>
+          <span>Buka Portal Member &amp; Coach</span>
           <span>↗</span>
         </a>
       </div>

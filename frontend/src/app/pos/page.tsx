@@ -5,9 +5,11 @@ import AppShell from '@/components/AppShell';
 import PosCashierView from '@/components/PosCashierView';
 import { apiFetch } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/context/ToastContext';
 
 export default function PosPage() {
   const { currentUser } = useAuth();
+  const { showError } = useToast();
   const [catalog, setCatalog] = useState<any>(null);
   const [members, setMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -23,10 +25,11 @@ export default function PosPage() {
       setMembers(memRes);
     } catch (err: any) {
       console.error(err);
+      showError(err?.message || 'Gagal memuat katalog POS', 'Gagal Memuat Data');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [showError]);
 
   useEffect(() => {
     loadData();

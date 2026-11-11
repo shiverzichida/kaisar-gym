@@ -1,5 +1,6 @@
 import { BadRequestException, Body, Controller, Delete, Get, Injectable, Module, NotFoundException, Param, Post, Put } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { getJakartaCompactDate } from '../common/jakarta-time';
 
 @Injectable()
 export class PosService {
@@ -47,38 +48,90 @@ export class PosService {
       throw new BadRequestException('Keranjang belanja masih kosong');
     }
 
-    const subtotal = body.items.reduce((acc, item) => acc + item.qty * item.unitPrice, 0);
-    let discountAmount = Number(body.discountAmount || 0);
-
-    if (body.promoCode) {
-      const voucher = await this.prisma.promoVoucher.findUnique({ where: { code: body.promoCode.toUpperCase() } });
-      if (voucher && voucher.isActive && voucher.usedCount < voucher.maxQuota && subtotal >= voucher.minPurchase) {
-        if (voucher.discountType === 'PERCENTAGE') {
-          discountAmount += Math.round((subtotal * voucher.discountValue) / 100);
-        } else {
-          discountAmount += voucher.discountValue;
-        }
-      }
+    const manualDiscount = Number(body.discountAmount || 0);
+    if (!Number.isFinite(manualDiscount) || manualDiscount < 0) {
+      throw new BadRequestException('Nominal diskon tidak boleh negatif');
     }
 
-    const grandTotal = Math.max(0, subtotal - discountAmount);
-    const todayStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const todayStr = getJakartaCompactDate();
     const invPrefix = `INV-${todayStr}-`;
 
-    const activeShift = await this.prisma.cashierShift.findFirst({ where: { status: 'OPEN' } });
-
-    let cashAmount = Number(body.cashAmount || 0);
-    let nonCashAmount = Number(body.nonCashAmount || 0);
-    if (body.paymentMethod === 'CASH') {
-      cashAmount = cashAmount || grandTotal;
-      nonCashAmount = 0;
-    } else if (body.paymentMethod !== 'SPLIT' && body.paymentMethod !== 'PARTIAL') {
-      cashAmount = 0;
-      nonCashAmount = grandTotal;
-    }
-    const changeAmount = Math.max(0, cashAmount + nonCashAmount - grandTotal);
-
     const result = await this.prisma.runWithAdvisoryLock(88002, async (tx) => {
+      const now = new Date();
+      // Resolve authoritative server-side prices for catalog items
+      const normalizedItems = [];
+      for (const rawItem of body.items) {
+        const qty = Number(rawItem.qty);
+        if (!Number.isInteger(qty) || qty <= 0) {
+          throw new BadRequestException(`Kuantitas item "${rawItem.itemName}" harus bilangan bulat positif`);
+        }
+
+        let unitPrice = Number(rawItem.unitPrice);
+        if (rawItem.itemId && rawItem.itemType === 'MEMBERSHIP') {
+          const pkg = await tx.membershipPackage.findUnique({ where: { id: rawItem.itemId } });
+          if (!pkg || !pkg.isActive) {
+            throw new BadRequestException(`Paket membership "${rawItem.itemName}" tidak ditemukan atau nonaktif`);
+          }
+          unitPrice = pkg.promoPrice ?? pkg.normalPrice;
+        } else if (rawItem.itemId && rawItem.itemType === 'PT_PACKAGE') {
+          const ptPkg = await tx.ptPackage.findUnique({ where: { id: rawItem.itemId } });
+          if (!ptPkg || !ptPkg.isActive) {
+            throw new BadRequestException(`Paket PT "${rawItem.itemName}" tidak ditemukan atau nonaktif`);
+          }
+          unitPrice = ptPkg.price;
+        } else if (rawItem.itemId && rawItem.itemType === 'RETAIL_PRODUCT') {
+          const prod = await tx.product.findUnique({ where: { id: rawItem.itemId } });
+          if (!prod || !prod.isActive) {
+            throw new BadRequestException(`Produk "${rawItem.itemName}" tidak ditemukan atau nonaktif`);
+          }
+          unitPrice = prod.sellingPrice;
+        } else if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+          throw new BadRequestException(`Harga item "${rawItem.itemName}" tidak valid`);
+        }
+
+        normalizedItems.push({ ...rawItem, qty, unitPrice });
+      }
+
+      const subtotal = normalizedItems.reduce((acc, item) => acc + item.qty * item.unitPrice, 0);
+      let discountAmount = manualDiscount;
+      let appliedPromoCode: string | null = null;
+
+      if (body.promoCode) {
+        const promoUpper = body.promoCode.trim().toUpperCase();
+        const voucher = await tx.promoVoucher.findUnique({ where: { code: promoUpper } });
+        if (
+          voucher &&
+          voucher.isActive &&
+          voucher.usedCount < voucher.maxQuota &&
+          (!voucher.validUntil || voucher.validUntil >= now) &&
+          subtotal >= voucher.minPurchase
+        ) {
+          appliedPromoCode = promoUpper;
+          if (voucher.discountType === 'PERCENTAGE') {
+            discountAmount += Math.round((subtotal * voucher.discountValue) / 100);
+          } else {
+            discountAmount += voucher.discountValue;
+          }
+        }
+      }
+
+      const grandTotal = Math.max(0, subtotal - discountAmount);
+      const activeShift = await tx.cashierShift.findFirst({
+        where: { status: 'OPEN' },
+        orderBy: { startTime: 'desc' },
+      });
+
+      let cashAmount = Number(body.cashAmount || 0);
+      let nonCashAmount = Number(body.nonCashAmount || 0);
+      if (body.paymentMethod === 'CASH') {
+        cashAmount = cashAmount || grandTotal;
+        nonCashAmount = 0;
+      } else if (body.paymentMethod !== 'SPLIT' && body.paymentMethod !== 'PARTIAL') {
+        cashAmount = 0;
+        nonCashAmount = grandTotal;
+      }
+      const changeAmount = Math.max(0, cashAmount + nonCashAmount - grandTotal);
+
       const latestInv = await tx.posTransaction.findFirst({
         where: { invoiceNumber: { startsWith: invPrefix } },
         orderBy: { invoiceNumber: 'desc' },
@@ -99,7 +152,7 @@ export class PosService {
           shiftId: activeShift?.id || null,
           subtotal,
           discountAmount,
-          promoCode: body.promoCode || null,
+          promoCode: appliedPromoCode,
           grandTotal,
           paymentMethod: body.paymentMethod,
           cashAmount: Math.min(cashAmount, grandTotal),
@@ -108,7 +161,7 @@ export class PosService {
           paymentRef: body.paymentRef || null,
           paymentStatus: body.paymentMethod === 'PARTIAL' ? 'PARTIAL' : 'PAID',
           items: {
-            create: body.items.map((it) => ({
+            create: normalizedItems.map((it) => ({
               itemType: it.itemType,
               itemId: it.itemId || null,
               itemName: it.itemName,
@@ -123,7 +176,7 @@ export class PosService {
       });
 
       // Process each cart item side-effects
-      for (const item of body.items) {
+      for (const item of normalizedItems) {
         // 1. Stacked Membership Duration or Pending Activation logic
         if (item.itemType === 'MEMBERSHIP' && body.memberId && item.itemId) {
           const pkg = await tx.membershipPackage.findUnique({ where: { id: item.itemId } });
@@ -214,29 +267,32 @@ export class PosService {
 
         // 3. Retail Product Inventory Deduction & Stock Card
         if (item.itemType === 'RETAIL_PRODUCT' && item.itemId) {
+          const decResult = await tx.product.updateMany({
+            where: { id: item.itemId, stock: { gte: item.qty } },
+            data: { stock: { decrement: item.qty } },
+          });
           const product = await tx.product.findUnique({ where: { id: item.itemId } });
-          if (product) {
-            const newStock = Math.max(0, product.stock - item.qty);
-            await tx.product.update({
-              where: { id: product.id },
-              data: { stock: newStock },
-            });
-            await tx.stockLog.create({
-              data: {
-                productId: product.id,
-                changeQty: -item.qty,
-                finalStock: newStock,
-                type: 'SALE',
-                notes: `Penjualan POS ${invoiceNumber}`,
-                recordedBy: body.cashierName,
-              },
-            });
+          if (!product) {
+            throw new NotFoundException(`Produk "${item.itemName}" tidak ditemukan`);
           }
+          if (decResult.count === 0) {
+            throw new BadRequestException(`Stok "${product.name}" tidak mencukupi (tersisa ${product.stock}, diminta ${item.qty})`);
+          }
+          await tx.stockLog.create({
+            data: {
+              productId: product.id,
+              changeQty: -item.qty,
+              finalStock: product.stock,
+              type: 'SALE',
+              notes: `Penjualan POS ${invoiceNumber}`,
+              recordedBy: body.cashierName,
+            },
+          });
         }
       }
 
       // Update Active Shift Totals
-      if (activeShift) {
+      if (activeShift && body.paymentMethod !== 'PARTIAL') {
         const netCash = body.paymentMethod === 'CASH' ? grandTotal : body.paymentMethod === 'SPLIT' ? Math.min(cashAmount, grandTotal) : 0;
         const netQris = body.paymentMethod === 'QRIS' ? grandTotal : 0;
         const netEdc =
@@ -257,9 +313,9 @@ export class PosService {
         });
       }
 
-      if (body.promoCode) {
+      if (appliedPromoCode) {
         await tx.promoVoucher.updateMany({
-          where: { code: body.promoCode.toUpperCase() },
+          where: { code: appliedPromoCode },
           data: { usedCount: { increment: 1 } },
         });
       }
@@ -280,26 +336,28 @@ export class PosService {
   }
 
   async voidTransaction(id: string, body: { reason: string; voidedBy: string }) {
-    const trx = await this.prisma.posTransaction.findUnique({
-      where: { id },
-      include: { items: true },
-    });
-    if (!trx) throw new NotFoundException('Transaksi tidak ditemukan');
-    if (trx.paymentStatus === 'VOID') throw new BadRequestException('Transaksi sudah di-void sebelumnya');
+    const voidRes = await this.prisma.runWithAdvisoryLock(88002, async (tx) => {
+      const trx = await tx.posTransaction.findUnique({
+        where: { id },
+        include: { items: true },
+      });
+      if (!trx) throw new NotFoundException('Transaksi tidak ditemukan');
+      if (trx.paymentStatus === 'VOID') throw new BadRequestException('Transaksi sudah di-void sebelumnya');
 
-    const updated = await this.prisma.$transaction(async (tx) => {
-      // Restore retail product stock
+      // 1. Restore retail product stock atomically
       for (const item of trx.items) {
         if (item.itemType === 'RETAIL_PRODUCT' && item.itemId) {
           const prod = await tx.product.findUnique({ where: { id: item.itemId } });
           if (prod) {
-            const restored = prod.stock + item.qty;
-            await tx.product.update({ where: { id: prod.id }, data: { stock: restored } });
+            const updatedProd = await tx.product.update({
+              where: { id: prod.id },
+              data: { stock: { increment: item.qty } },
+            });
             await tx.stockLog.create({
               data: {
                 productId: prod.id,
                 changeQty: item.qty,
-                finalStock: restored,
+                finalStock: updatedProd.stock,
                 type: 'VOID',
                 notes: `Void Nota ${trx.invoiceNumber}: ${body.reason}`,
                 recordedBy: body.voidedBy,
@@ -309,7 +367,59 @@ export class PosService {
         }
       }
 
-      return tx.posTransaction.update({
+      // 2. Reverse linked shift totals if transaction had a recorded shift
+      if (trx.shiftId && trx.paymentStatus !== 'PARTIAL') {
+        const netCash = trx.paymentMethod === 'CASH' ? trx.grandTotal : trx.paymentMethod === 'SPLIT' ? Math.min(trx.cashAmount, trx.grandTotal) : 0;
+        const netQris = trx.paymentMethod === 'QRIS' ? trx.grandTotal : 0;
+        const netEdc =
+          trx.paymentMethod.startsWith('EDC_')
+            ? trx.grandTotal
+            : trx.paymentMethod === 'SPLIT'
+            ? trx.nonCashAmount
+            : 0;
+
+        await tx.cashierShift.updateMany({
+          where: { id: trx.shiftId },
+          data: {
+            totalCashIn: { decrement: netCash },
+            totalQrisIn: { decrement: netQris },
+            totalEdcIn: { decrement: netEdc },
+            expectedEndingCash: { decrement: netCash },
+          },
+        });
+      }
+
+      // 3. Decrement promo voucher usage count if applied
+      if (trx.promoCode) {
+        await tx.promoVoucher.updateMany({
+          where: { code: trx.promoCode.toUpperCase(), usedCount: { gt: 0 } },
+          data: { usedCount: { decrement: 1 } },
+        });
+      }
+
+      // 4. Cancel subscriptions / PT contracts issued by this voided invoice
+      await tx.memberSubscription.updateMany({
+        where: { invoiceRef: trx.invoiceNumber, status: { in: ['ACTIVE', 'PENDING_ACTIVATION'] } },
+        data: { status: 'CANCELLED', notes: `Dibatalkan karena VOID ${trx.invoiceNumber}` },
+      });
+      await tx.memberPtContract.updateMany({
+        where: { invoiceRef: trx.invoiceNumber, status: 'ACTIVE' },
+        data: { status: 'CANCELLED', notes: `Dibatalkan karena VOID ${trx.invoiceNumber}` },
+      });
+
+      if (trx.memberId) {
+        const remainingSub = await tx.memberSubscription.findFirst({
+          where: { memberId: trx.memberId, status: 'ACTIVE', endDate: { gte: new Date() } },
+        });
+        if (!remainingSub) {
+          await tx.member.update({
+            where: { id: trx.memberId },
+            data: { status: 'INACTIVE', parkingActive: false },
+          });
+        }
+      }
+
+      const updatedTrx = await tx.posTransaction.update({
         where: { id },
         data: {
           paymentStatus: 'VOID',
@@ -317,6 +427,7 @@ export class PosService {
           voidedBy: body.voidedBy || 'Manager Operasional',
         },
       });
+      return { before: trx, updated: updatedTrx };
     });
 
     await this.prisma.logAudit({
@@ -325,11 +436,11 @@ export class PosService {
       action: 'VOID_TRANSACTION',
       entityName: 'PosTransaction',
       entityId: id,
-      beforeJson: trx,
-      afterJson: updated,
+      beforeJson: voidRes.before,
+      afterJson: voidRes.updated,
     });
 
-    return updated;
+    return voidRes.updated;
   }
 
   async getMembershipPackage(id: string) {
@@ -461,20 +572,22 @@ export class PosService {
   }
 
   async updateProduct(id: string, data: any) {
-    const prod = await this.prisma.product.findUnique({ where: { id } });
-    if (!prod) throw new NotFoundException('Produk tidak ditemukan');
+    return this.prisma.runWithAdvisoryLock(88002, async (tx) => {
+      const prod = await tx.product.findUnique({ where: { id } });
+      if (!prod) throw new NotFoundException('Produk tidak ditemukan');
 
-    return this.prisma.product.update({
-      where: { id },
-      data: {
-        name: data.name !== undefined ? data.name : prod.name,
-        category: data.category !== undefined ? data.category : prod.category,
-        costPrice: data.costPrice !== undefined ? Number(data.costPrice) : prod.costPrice,
-        sellingPrice: data.sellingPrice !== undefined ? Number(data.sellingPrice) : prod.sellingPrice,
-        stock: data.stock !== undefined ? Number(data.stock) : prod.stock,
-        minStockAlert: data.minStockAlert !== undefined ? Number(data.minStockAlert) : prod.minStockAlert,
-        isActive: data.isActive !== undefined ? Boolean(data.isActive) : prod.isActive,
-      },
+      return tx.product.update({
+        where: { id },
+        data: {
+          name: data.name !== undefined ? data.name : prod.name,
+          category: data.category !== undefined ? data.category : prod.category,
+          costPrice: data.costPrice !== undefined ? Number(data.costPrice) : prod.costPrice,
+          sellingPrice: data.sellingPrice !== undefined ? Number(data.sellingPrice) : prod.sellingPrice,
+          stock: data.stock !== undefined ? Number(data.stock) : prod.stock,
+          minStockAlert: data.minStockAlert !== undefined ? Number(data.minStockAlert) : prod.minStockAlert,
+          isActive: data.isActive !== undefined ? Boolean(data.isActive) : prod.isActive,
+        },
+      });
     });
   }
 

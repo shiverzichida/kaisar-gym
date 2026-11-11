@@ -1,5 +1,6 @@
 import { BadRequestException, Body, Controller, Delete, Get, Injectable, Module, NotFoundException, Param, Patch, Post, Put } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { getJakartaWeekStartUtc } from '../common/jakarta-time';
 
 @Injectable()
 export class ClassesService {
@@ -118,7 +119,7 @@ export class ClassesService {
     return { success: true, deletedCount: res.count };
   }
 
-  // 7.2 Auto-generate jadwal harian dari template mingguan
+  // 7.2 Auto-generate jadwal harian dari template mingguan (anchored Senin 00:00 WIB)
   async generateSchedulesFromTemplates() {
     const templates = await this.prisma.classScheduleTemplate.findMany({
       where: { isActive: true },
@@ -126,10 +127,10 @@ export class ClassesService {
     });
 
     const created = [];
-    const baseDate = new Date();
+    const weekMondayUtc = getJakartaWeekStartUtc();
 
     for (const tpl of templates) {
-      const targetDate = new Date(baseDate.getTime() + (tpl.dayOfWeek - 1) * 24 * 60 * 60 * 1000);
+      const targetDate = new Date(weekMondayUtc.getTime() + (tpl.dayOfWeek - 1) * 24 * 60 * 60 * 1000);
       const sched = await this.prisma.classSchedule.create({
         data: {
           studioClassId: tpl.studioClassId,
@@ -156,11 +157,14 @@ export class ClassesService {
         include: { studioClass: true },
       });
       if (!schedule) throw new NotFoundException('Jadwal kelas tidak ditemukan');
+      if (schedule.status === 'CANCELLED' || schedule.status === 'COMPLETED') {
+        throw new BadRequestException(`Jadwal kelas berstatus ${schedule.status} dan tidak dapat dibooking`);
+      }
 
       const activeCount = await tx.classBooking.count({
         where: { scheduleId: schedule.id, status: { not: 'CANCELLED' } },
       });
-      if (activeCount >= schedule.maxCapacity) {
+      if (activeCount >= schedule.maxCapacity || schedule.status === 'FULL') {
         throw new BadRequestException('Kuota kelas studio sudah penuh (Full Booked)');
       }
 
@@ -194,15 +198,37 @@ export class ClassesService {
   }
 
   async updateBookingStatus(bookingId: string, status: 'ATTENDED' | 'CANCELLED' | 'ABSENT') {
-    const booking = await this.prisma.classBooking.findUnique({ where: { id: bookingId } });
-    if (!booking) throw new NotFoundException('Booking tidak ditemukan');
+    const allowedTargetStatuses = new Set(['ATTENDED', 'CANCELLED', 'ABSENT']);
+    if (!allowedTargetStatuses.has(status)) {
+      throw new BadRequestException(`Status booking tidak valid: ${status}`);
+    }
 
-    return this.prisma.runWithAdvisoryLock(`class_book:${booking.scheduleId}`, async (tx) => {
+    const bookingRef = await this.prisma.classBooking.findUnique({
+      where: { id: bookingId },
+      select: { scheduleId: true },
+    });
+    if (!bookingRef) throw new NotFoundException('Booking tidak ditemukan');
+
+    return this.prisma.runWithAdvisoryLock(`class_book:${bookingRef.scheduleId}`, async (tx) => {
+      const booking = await tx.classBooking.findUnique({ where: { id: bookingId } });
+      if (!booking) throw new NotFoundException('Booking tidak ditemukan');
+
+      const allowedTransitions: Record<string, string[]> = {
+        BOOKED: ['ATTENDED', 'CANCELLED', 'ABSENT'],
+        ATTENDED: [],
+        CANCELLED: [],
+        ABSENT: [],
+      };
+      const validNext = allowedTransitions[booking.status] || [];
+      if (booking.status !== status && !validNext.includes(status)) {
+        throw new BadRequestException(`Transisi status booking dari ${booking.status} ke ${status} tidak diizinkan`);
+      }
+
       const updated = await tx.classBooking.update({
         where: { id: bookingId },
         data: {
           status,
-          attendedAt: status === 'ATTENDED' ? new Date() : null,
+          attendedAt: status === 'ATTENDED' ? new Date() : booking.attendedAt,
         },
       });
 
@@ -211,14 +237,21 @@ export class ClassesService {
       });
       const schedule = await tx.classSchedule.findUnique({
         where: { id: booking.scheduleId },
-        select: { maxCapacity: true },
+        select: { maxCapacity: true, status: true },
       });
-      const isFull = schedule ? activeCount >= schedule.maxCapacity : false;
 
-      await tx.classSchedule.update({
-        where: { id: booking.scheduleId },
-        data: { bookedCount: activeCount, status: isFull ? 'FULL' : 'OPEN' },
-      });
+      if (schedule && schedule.status !== 'CANCELLED' && schedule.status !== 'COMPLETED') {
+        const isFull = activeCount >= schedule.maxCapacity;
+        await tx.classSchedule.update({
+          where: { id: booking.scheduleId },
+          data: { bookedCount: activeCount, status: isFull ? 'FULL' : 'OPEN' },
+        });
+      } else if (schedule) {
+        await tx.classSchedule.update({
+          where: { id: booking.scheduleId },
+          data: { bookedCount: activeCount },
+        });
+      }
 
       return updated;
     });

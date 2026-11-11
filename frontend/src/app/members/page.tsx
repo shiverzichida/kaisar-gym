@@ -10,7 +10,7 @@ import { useToast } from '@/context/ToastContext';
 
 function MembersContent() {
   const { currentUser } = useAuth();
-  const { showSuccess } = useToast();
+  const { showSuccess, showError } = useToast();
   const searchParams = useSearchParams();
   const initialQ = searchParams.get('q') || '';
   const newMemberCode = searchParams.get('newMember');
@@ -45,10 +45,11 @@ function MembersContent() {
       setPackages(catRes?.packages || []);
     } catch (err: any) {
       console.error(err);
+      showError(err?.message || 'Gagal memuat data member', 'Gagal Memuat Data');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [showError]);
 
   useEffect(() => {
     loadData();

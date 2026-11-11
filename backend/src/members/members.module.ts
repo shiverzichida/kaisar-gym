@@ -198,22 +198,26 @@ export class MembersService {
     const now = new Date();
     const isNowActive = newEnd >= now;
 
-    const updated = await this.prisma.memberSubscription.update({
-      where: { id: subId },
-      data: {
-        startDate: newStart,
-        endDate: newEnd,
-        status: isNowActive ? 'ACTIVE' : 'EXPIRED',
-        notes: body.notes || before.notes,
-      },
-    });
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const updatedSub = await tx.memberSubscription.update({
+        where: { id: subId },
+        data: {
+          startDate: newStart,
+          endDate: newEnd,
+          status: isNowActive ? 'ACTIVE' : 'EXPIRED',
+          notes: body.notes || before.notes,
+        },
+      });
 
-    await this.prisma.member.update({
-      where: { id: memberId },
-      data: {
-        status: isNowActive ? 'ACTIVE' : 'INACTIVE',
-        parkingActive: isNowActive,
-      },
+      await tx.member.update({
+        where: { id: memberId },
+        data: {
+          status: isNowActive ? 'ACTIVE' : 'INACTIVE',
+          parkingActive: isNowActive,
+        },
+      });
+
+      return updatedSub;
     });
 
     await this.prisma.logAudit({
@@ -256,34 +260,38 @@ export class MembersService {
     const isCurrentlyOnLeave = start <= now && end >= now;
     const newMemberStatus = isCurrentlyOnLeave ? 'CUTI' : newEndDate >= now ? 'ACTIVE' : 'INACTIVE';
 
-    const leave = await this.prisma.memberLeave.create({
-      data: {
-        memberId,
-        subscriptionId: latestSub.id,
-        leaveType: 'SCHEDULED',
-        startDate: start,
-        endDate: end,
-        daysAdded,
-        status: isCurrentlyOnLeave ? 'ACTIVE' : 'COMPLETED',
-        reason: body.reason || 'Cuti Terjadwal',
-        approvedBy: body.actorName || 'Manager Operasional',
-      },
-    });
+    const { leave, updatedSub } = await this.prisma.$transaction(async (tx) => {
+      const createdLeave = await tx.memberLeave.create({
+        data: {
+          memberId,
+          subscriptionId: latestSub.id,
+          leaveType: 'SCHEDULED',
+          startDate: start,
+          endDate: end,
+          daysAdded,
+          status: isCurrentlyOnLeave ? 'ACTIVE' : 'COMPLETED',
+          reason: body.reason || 'Cuti Terjadwal',
+          approvedBy: body.actorName || 'Manager Operasional',
+        },
+      });
 
-    const updatedSub = await this.prisma.memberSubscription.update({
-      where: { id: latestSub.id },
-      data: {
-        endDate: newEndDate,
-        status: isCurrentlyOnLeave ? 'FROZEN' : newEndDate >= now ? 'ACTIVE' : 'EXPIRED',
-      },
-    });
+      const subRes = await tx.memberSubscription.update({
+        where: { id: latestSub.id },
+        data: {
+          endDate: newEndDate,
+          status: isCurrentlyOnLeave ? 'FROZEN' : newEndDate >= now ? 'ACTIVE' : 'EXPIRED',
+        },
+      });
 
-    await this.prisma.member.update({
-      where: { id: memberId },
-      data: {
-        status: newMemberStatus,
-        parkingActive: newMemberStatus === 'ACTIVE',
-      },
+      await tx.member.update({
+        where: { id: memberId },
+        data: {
+          status: newMemberStatus,
+          parkingActive: newMemberStatus === 'ACTIVE',
+        },
+      });
+
+      return { leave: createdLeave, updatedSub: subRes };
     });
 
     await this.prisma.logAudit({
@@ -313,26 +321,30 @@ export class MembersService {
     const daysFrozen = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
     const newEndDate = new Date(new Date(leave.subscription.endDate).getTime() + daysFrozen * 24 * 60 * 60 * 1000);
 
-    const updatedLeave = await this.prisma.memberLeave.update({
-      where: { id: leaveId },
-      data: {
-        endDate: now,
-        daysAdded: daysFrozen,
-        status: 'COMPLETED',
-      },
-    });
+    const updatedLeave = await this.prisma.$transaction(async (tx) => {
+      const resLeave = await tx.memberLeave.update({
+        where: { id: leaveId },
+        data: {
+          endDate: now,
+          daysAdded: daysFrozen,
+          status: 'COMPLETED',
+        },
+      });
 
-    await this.prisma.memberSubscription.update({
-      where: { id: leave.subscriptionId },
-      data: {
-        endDate: newEndDate,
-        status: 'ACTIVE',
-      },
-    });
+      await tx.memberSubscription.update({
+        where: { id: leave.subscriptionId },
+        data: {
+          endDate: newEndDate,
+          status: 'ACTIVE',
+        },
+      });
 
-    await this.prisma.member.update({
-      where: { id: leave.memberId },
-      data: { status: 'ACTIVE', parkingActive: true },
+      await tx.member.update({
+        where: { id: leave.memberId },
+        data: { status: 'ACTIVE', parkingActive: true },
+      });
+
+      return resLeave;
     });
 
     await this.prisma.logAudit({
@@ -360,20 +372,22 @@ export class MembersService {
     const now = new Date();
     const isStillActive = rolledBackEndDate >= now;
 
-    await this.prisma.memberSubscription.update({
-      where: { id: leave.subscriptionId },
-      data: {
-        endDate: rolledBackEndDate,
-        status: isStillActive ? 'ACTIVE' : 'EXPIRED',
-      },
-    });
+    await this.prisma.$transaction(async (tx) => {
+      await tx.memberSubscription.update({
+        where: { id: leave.subscriptionId },
+        data: {
+          endDate: rolledBackEndDate,
+          status: isStillActive ? 'ACTIVE' : 'EXPIRED',
+        },
+      });
 
-    await this.prisma.member.update({
-      where: { id: leave.memberId },
-      data: { status: isStillActive ? 'ACTIVE' : 'INACTIVE' },
-    });
+      await tx.member.update({
+        where: { id: leave.memberId },
+        data: { status: isStillActive ? 'ACTIVE' : 'INACTIVE', parkingActive: isStillActive },
+      });
 
-    await this.prisma.memberLeave.delete({ where: { id: leaveId } });
+      await tx.memberLeave.delete({ where: { id: leaveId } });
+    });
 
     await this.prisma.logAudit({
       userName: actorName,
@@ -413,10 +427,17 @@ export class MembersService {
     const now = new Date();
     let startDate: Date;
     if (body.startDate) {
-      startDate = new Date(body.startDate);
-      // Jika format YYYY-MM-DD, set jam sesuai sekarang agar akurat
-      if (body.startDate.length === 10) {
-        startDate.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), 0);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(body.startDate)) {
+        const wibNow = new Intl.DateTimeFormat('en-GB', {
+          timeZone: 'Asia/Jakarta',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false,
+        }).format(now);
+        startDate = new Date(`${body.startDate}T${wibNow}+07:00`);
+      } else {
+        startDate = new Date(body.startDate);
       }
     } else {
       startDate = new Date();
@@ -428,22 +449,26 @@ export class MembersService {
     const isStartingNowOrPast = startDate <= now;
     const newStatus = isStartingNowOrPast ? 'ACTIVE' : 'PENDING_ACTIVATION';
 
-    const updatedSub = await this.prisma.memberSubscription.update({
-      where: { id: targetSub.id },
-      data: {
-        startDate,
-        endDate,
-        status: newStatus,
-        notes: isStartingNowOrPast ? 'Paket Telah Diaktifkan' : `Aktivasi Dijadwalkan Mulai ${body.startDate}`,
-      },
-    });
+    const updatedSub = await this.prisma.$transaction(async (tx) => {
+      const subRes = await tx.memberSubscription.update({
+        where: { id: targetSub.id },
+        data: {
+          startDate,
+          endDate,
+          status: newStatus,
+          notes: isStartingNowOrPast ? 'Paket Telah Diaktifkan' : `Aktivasi Dijadwalkan Mulai ${body.startDate}`,
+        },
+      });
 
-    await this.prisma.member.update({
-      where: { id: memberId },
-      data: {
-        status: newStatus,
-        parkingActive: isStartingNowOrPast,
-      },
+      await tx.member.update({
+        where: { id: memberId },
+        data: {
+          status: newStatus,
+          parkingActive: isStartingNowOrPast,
+        },
+      });
+
+      return subRes;
     });
 
     await this.prisma.logAudit({
@@ -599,10 +624,7 @@ export class MembersService {
       await tx.classBooking.deleteMany({ where: { memberId: id } });
       await tx.memberAttendance.deleteMany({ where: { memberId: id } });
 
-      const contracts = await tx.memberPtContract.findMany({ where: { memberId: id } });
-      for (const c of contracts) {
-        await tx.ptSessionLog.deleteMany({ where: { contractId: c.id } });
-      }
+      await tx.ptSessionLog.deleteMany({ where: { contract: { memberId: id } } });
       await tx.memberPtContract.deleteMany({ where: { memberId: id } });
 
       await tx.posTransaction.updateMany({
@@ -619,15 +641,18 @@ export class MembersService {
   }
 
   async bulkDelete(ids: string[]) {
-    if (!ids || ids.length === 0) return { deletedCount: 0 };
+    if (!ids || ids.length === 0) return { deletedCount: 0, failedIds: [] };
     let deletedCount = 0;
+    const failedIds: string[] = [];
     for (const id of ids) {
       try {
         await this.deleteMember(id);
         deletedCount++;
-      } catch {}
+      } catch {
+        failedIds.push(id);
+      }
     }
-    return { success: true, deletedCount };
+    return { success: failedIds.length === 0, deletedCount, failedIds };
   }
 
   async fixDb() {

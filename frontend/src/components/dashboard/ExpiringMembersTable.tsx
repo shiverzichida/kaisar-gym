@@ -33,8 +33,8 @@ export default function ExpiringMembersTable({
 }) {
   const [filterMode, setFilterMode] = useState<'all' | 'urgent'>('all');
 
-  // Compute expiring members (daysRemaining <= 7 or expired within last 7 days)
-  const today = new Date('2026-10-19T00:00:00Z');
+  // Compute expiring members (daysRemaining between -7 and 7)
+  const today = new Date();
 
   const computedList: ExpiringMemberItem[] = [];
 
@@ -46,12 +46,12 @@ export default function ExpiringMembersTable({
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
       // Consider expiring if diffDays between -7 and 7
-      if (diffDays <= 7) {
+      if (diffDays >= -7 && diffDays <= 7) {
         computedList.push({
           id: m.id,
           fullName: m.fullName,
           memberCode: m.memberCode,
-          phone: m.phone || '081233445566',
+          phone: m.phone || '-',
           packageName: sub.package?.name || 'Paket Reguler Gym',
           endDate: sub.endDate,
           daysRemaining: diffDays,
@@ -61,41 +61,7 @@ export default function ExpiringMembersTable({
     }
   });
 
-  // Provide realistic fallback if database only has 1 or 2 rows
-  const fallbackList: ExpiringMemberItem[] = [
-    {
-      id: 'fb-1',
-      fullName: 'Dewi Lestari',
-      memberCode: 'KG-2026-0004',
-      phone: '081566778899',
-      packageName: 'Reguler Gym 1 Bulan',
-      endDate: '2026-10-21T17:00:00Z',
-      daysRemaining: 2,
-      status: 'ACTIVE',
-    },
-    {
-      id: 'fb-2',
-      fullName: 'Siti Aminah',
-      memberCode: 'KG-2026-0002',
-      phone: '081233445566',
-      packageName: 'Gym + All Studio Class 1 Bulan',
-      endDate: '2026-10-23T17:00:00Z',
-      daysRemaining: 4,
-      status: 'ACTIVE',
-    },
-    {
-      id: 'fb-3',
-      fullName: 'Rian Pratama',
-      memberCode: 'KG-2026-0005',
-      phone: '081399887766',
-      packageName: 'Daily Pass (1 Hari)',
-      endDate: '2026-10-20T17:00:00Z',
-      daysRemaining: 1,
-      status: 'ACTIVE',
-    },
-  ];
-
-  const displayItems = computedList.length >= 2 ? computedList : fallbackList;
+  const displayItems = computedList;
 
   const filteredItems = filterMode === 'urgent'
     ? displayItems.filter((i) => i.daysRemaining <= 2)

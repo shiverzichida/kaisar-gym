@@ -30,7 +30,10 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
 
     return this.$transaction(
       async (tx) => {
-        await tx.$executeRawUnsafe(`DO $$ BEGIN PERFORM pg_advisory_xact_lock(${numericKey}); END $$;`);
+        if (!Number.isSafeInteger(numericKey)) {
+          throw new Error('Invalid advisory lock key');
+        }
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock(${numericKey})`;
         return fn(tx);
       },
       { maxWait: 25000, timeout: 30000 },

@@ -36,10 +36,11 @@ export default function GatePage() {
       setAttendanceLogs(data);
     } catch (err: any) {
       console.error(err);
+      showError(err?.message || 'Gagal memuat log akses gate', 'Gagal Memuat Data');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [showError]);
 
   useEffect(() => {
     loadData();
