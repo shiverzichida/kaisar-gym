@@ -48,10 +48,10 @@ const AUDIT_ROUTE_MAP: Record<string, AuditRule> = {
   'POST /classes/schedules': { action: 'CREATE_CLASS_SCHEDULE', entityName: 'ClassSchedule' },
   'PUT /classes/schedules/:id': { action: 'UPDATE_CLASS_SCHEDULE', entityName: 'ClassSchedule' },
   'DELETE /classes/schedules/:id': { action: 'DELETE_CLASS_SCHEDULE', entityName: 'ClassSchedule' },
-  'POST /classes/schedules/bulk-delete': { action: 'BULK_DELETE_SCHEDULES', entityName: 'ClassSchedule' },
-  'POST /classes/generate-schedule': { action: 'GENERATE_CLASS_SCHEDULE', entityName: 'ClassSchedule' },
+  'POST /classes/schedules/batch-delete': { action: 'BULK_DELETE_SCHEDULES', entityName: 'ClassSchedule' },
+  'POST /classes/generate-schedules': { action: 'GENERATE_CLASS_SCHEDULE', entityName: 'ClassSchedule' },
   'POST /classes/book': { action: 'BOOK_CLASS', entityName: 'ClassBooking' },
-  'PATCH /classes/bookings/:id': { action: 'UPDATE_CLASS_BOOKING', entityName: 'ClassBooking' },
+  'PATCH /classes/bookings/:id/status': { action: 'UPDATE_CLASS_BOOKING', entityName: 'ClassBooking' },
 };
 
 function decodeHeaderValue(val: unknown, fallback: string): string {

@@ -49,14 +49,15 @@ export default function EditClassSchedulePage({ params }: { params: { id: string
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [schedData, overviewData] = await Promise.all([
+      const [schedData, overviewData, trainersData] = await Promise.all([
         apiFetch<any>(`/classes/schedules/${params.id}`),
         apiFetch<any>('/classes'),
+        apiFetch<any[]>('/trainers').catch(() => []),
       ]);
 
       setSchedule(schedData);
-      setStudioClasses(overviewData?.classes || []);
-      setTrainers(overviewData?.trainers || []);
+      setStudioClasses(overviewData?.studioClasses || overviewData?.classes || []);
+      setTrainers(Array.isArray(trainersData) ? trainersData : overviewData?.trainers || []);
 
       let dateStr = '';
       if (schedData.scheduleDate) {
@@ -285,14 +286,15 @@ export default function EditClassSchedulePage({ params }: { params: { id: string
 
               <div>
                 <label className="text-slate-300 font-bold block mb-1.5">
-                  Instruktur / Trainer Pengampu
+                  Instruktur / Trainer Pengampu <span className="text-rose-400">*</span>
                 </label>
                 <select
+                  required
                   value={form.trainerId}
                   onChange={(e) => setForm({ ...form, trainerId: e.target.value })}
                   className="w-full rounded-xl bg-[#070D1E] border border-white/10 px-3.5 py-2.5 text-xs text-white font-semibold focus:outline-none focus:border-cyan-400"
                 >
-                  <option value="">-- Belum Ditentukan (TBA) --</option>
+                  <option value="">-- Pilih Instruktur / Trainer --</option>
                   {trainers.map((tr) => (
                     <option key={tr.id} value={tr.id}>
                       {tr.code ? `[${tr.code}] ` : ''}
