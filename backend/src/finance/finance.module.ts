@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Injectable, Module, NotFoundException, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Injectable, Module, NotFoundException, Param, Post, Query } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -111,48 +111,89 @@ export class FinanceService {
     });
   }
 
-  async getAnalyticsAndReports() {
-    const [transactions, expenses, members, auditLogs, announcements] = await Promise.all([
-      this.prisma.posTransaction.findMany({
+  async getAnalyticsAndReports(txLimit?: number) {
+    const recentTxLimit = Math.min(Math.max(1, Number(txLimit) || 50), 200);
+
+    const [
+      txAgg,
+      paymentGroups,
+      itemTypeGroups,
+      expenseAgg,
+      memberGroups,
+      auditLogs,
+      announcements,
+      transactions,
+    ] = await Promise.all([
+      this.prisma.posTransaction.aggregate({
         where: { paymentStatus: { not: 'VOID' } },
-        include: { items: true, member: true },
-        orderBy: { createdAt: 'desc' },
+        _sum: { grandTotal: true },
+        _count: { _all: true },
       }),
-      this.prisma.expense.findMany(),
-      this.prisma.member.findMany(),
+      this.prisma.posTransaction.groupBy({
+        by: ['paymentMethod'],
+        where: { paymentStatus: { not: 'VOID' } },
+        _sum: { grandTotal: true },
+      }),
+      this.prisma.posTransactionItem.groupBy({
+        by: ['itemType'],
+        where: { transaction: { paymentStatus: { not: 'VOID' } } },
+        _sum: { totalPrice: true },
+      }),
+      this.prisma.expense.aggregate({
+        _sum: { amount: true },
+      }),
+      this.prisma.member.groupBy({
+        by: ['status'],
+        _count: { _all: true },
+      }),
       this.prisma.auditLog.findMany({ orderBy: { createdAt: 'desc' }, take: 50 }),
       this.prisma.announcement.findMany({ where: { isActive: true }, orderBy: { createdAt: 'desc' } }),
+      this.prisma.posTransaction.findMany({
+        where: { paymentStatus: { not: 'VOID' } },
+        include: {
+          items: true,
+          member: { select: { id: true, memberCode: true, fullName: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: recentTxLimit,
+      }),
     ]);
 
-    const totalRevenue = transactions.reduce((s, t) => s + t.grandTotal, 0);
-    const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
+    const totalRevenue = txAgg._sum.grandTotal || 0;
+    const totalExpenses = expenseAgg._sum.amount || 0;
 
     let membershipRevenue = 0;
     let ptRevenue = 0;
     let retailRevenue = 0;
 
-    for (const t of transactions) {
-      for (const item of t.items) {
-        if (item.itemType === 'MEMBERSHIP' || item.itemType === 'DAILY_PASS') {
-          membershipRevenue += item.totalPrice;
-        } else if (item.itemType === 'PT_PACKAGE') {
-          ptRevenue += item.totalPrice;
-        } else {
-          retailRevenue += item.totalPrice;
-        }
+    for (const grp of itemTypeGroups) {
+      const val = grp._sum.totalPrice || 0;
+      if (grp.itemType === 'MEMBERSHIP' || grp.itemType === 'DAILY_PASS') {
+        membershipRevenue += val;
+      } else if (grp.itemType === 'PT_PACKAGE') {
+        ptRevenue += val;
+      } else {
+        retailRevenue += val;
       }
     }
 
     const paymentBreakdown: Record<string, number> = {};
-    for (const t of transactions) {
-      paymentBreakdown[t.paymentMethod] = (paymentBreakdown[t.paymentMethod] || 0) + t.grandTotal;
+    for (const grp of paymentGroups) {
+      paymentBreakdown[grp.paymentMethod] = grp._sum.grandTotal || 0;
+    }
+
+    const memberCounts: Record<string, number> = {};
+    let totalMembers = 0;
+    for (const grp of memberGroups) {
+      memberCounts[grp.status] = grp._count._all;
+      totalMembers += grp._count._all;
     }
 
     const memberStats = {
-      total: members.length,
-      active: members.filter((m) => m.status === 'ACTIVE').length,
-      inactive: members.filter((m) => m.status === 'INACTIVE').length,
-      cuti: members.filter((m) => m.status === 'CUTI').length,
+      total: totalMembers,
+      active: memberCounts['ACTIVE'] || 0,
+      inactive: memberCounts['INACTIVE'] || 0,
+      cuti: memberCounts['CUTI'] || 0,
     };
 
     // 10.2 Peak Hours Heatmap (Jam Sibuk Gym)
@@ -175,7 +216,7 @@ export class FinanceService {
         membershipRevenue,
         ptRevenue,
         retailRevenue,
-        transactionCount: transactions.length,
+        transactionCount: txAgg._count._all,
       },
       paymentBreakdown,
       memberStats,
@@ -222,8 +263,8 @@ export class FinanceController {
   }
 
   @Get('analytics')
-  getAnalytics() {
-    return this.financeService.getAnalyticsAndReports();
+  getAnalytics(@Query('txLimit') txLimit?: string) {
+    return this.financeService.getAnalyticsAndReports(txLimit ? Number(txLimit) : undefined);
   }
 }
 

@@ -6,7 +6,10 @@ import { PrismaService } from '../prisma/prisma.service';
 export class MembersService {
   constructor(private prisma: PrismaService) {}
 
-  async findAll(search?: string, status?: string) {
+  async findAll(search?: string, status?: string, limit?: number, offset?: number) {
+    const take = Math.min(Math.max(1, Number(limit) || 100), 500);
+    const skip = Math.max(0, Number(offset) || 0);
+
     return this.prisma.member.findMany({
       where: {
         AND: [
@@ -23,7 +26,25 @@ export class MembersService {
             : {},
         ],
       },
-      include: {
+      select: {
+        id: true,
+        memberCode: true,
+        nik: true,
+        fullName: true,
+        phone: true,
+        email: true,
+        address: true,
+        rtRw: true,
+        kecamatan: true,
+        birthDate: true,
+        gender: true,
+        plateNumber: true,
+        parkingActive: true,
+        status: true,
+        groupMembershipId: true,
+        isGroupPic: true,
+        createdAt: true,
+        updatedAt: true,
         groupMembership: true,
         subscriptions: {
           include: { package: true },
@@ -37,6 +58,8 @@ export class MembersService {
         },
       },
       orderBy: { createdAt: 'desc' },
+      take,
+      skip,
     });
   }
 
@@ -717,8 +740,18 @@ export class MembersController {
   constructor(private membersService: MembersService) {}
 
   @Get()
-  findAll(@Query('search') search?: string, @Query('status') status?: string) {
-    return this.membersService.findAll(search, status);
+  findAll(
+    @Query('search') search?: string,
+    @Query('status') status?: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
+    return this.membersService.findAll(
+      search,
+      status,
+      limit ? Number(limit) : undefined,
+      offset ? Number(offset) : undefined,
+    );
   }
 
   @Post('fix-db')

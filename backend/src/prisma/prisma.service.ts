@@ -11,15 +11,26 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     await this.$disconnect();
   }
 
-  /** Serializes critical sequence generation inside a PostgreSQL transaction lock. */
+  /** Serializes critical operations inside a PostgreSQL transaction advisory lock. */
   async runWithAdvisoryLock<T>(
-    lockKey: number,
+    lockKey: number | string,
     fn: (tx: Prisma.TransactionClient) => Promise<T>,
   ): Promise<T> {
-    const safeKey = Math.trunc(lockKey);
+    let numericKey: number;
+    if (typeof lockKey === 'number') {
+      numericKey = Math.trunc(lockKey);
+    } else {
+      let h = 2166136261;
+      for (let i = 0; i < lockKey.length; i++) {
+        h ^= lockKey.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+      }
+      numericKey = (h >>> 0) & 0x7fffffff;
+    }
+
     return this.$transaction(
       async (tx) => {
-        await tx.$executeRawUnsafe(`DO $$ BEGIN PERFORM pg_advisory_xact_lock(${safeKey}); END $$;`);
+        await tx.$executeRawUnsafe(`DO $$ BEGIN PERFORM pg_advisory_xact_lock(${numericKey}); END $$;`);
         return fn(tx);
       },
       { maxWait: 25000, timeout: 30000 },

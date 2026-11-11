@@ -150,63 +150,78 @@ export class ClassesService {
   }
 
   async bookClass(body: { scheduleId: string; memberId: string }) {
-    const schedule = await this.prisma.classSchedule.findUnique({
-      where: { id: body.scheduleId },
-      include: { bookings: true, studioClass: true },
-    });
-    if (!schedule) throw new NotFoundException('Jadwal kelas tidak ditemukan');
+    return this.prisma.runWithAdvisoryLock(`class_book:${body.scheduleId}`, async (tx) => {
+      const schedule = await tx.classSchedule.findUnique({
+        where: { id: body.scheduleId },
+        include: { studioClass: true },
+      });
+      if (!schedule) throw new NotFoundException('Jadwal kelas tidak ditemukan');
 
-    const activeBookings = schedule.bookings.filter((b) => b.status !== 'CANCELLED');
-    if (activeBookings.length >= schedule.maxCapacity) {
-      throw new BadRequestException('Kuota kelas studio sudah penuh (Full Booked)');
-    }
+      const activeCount = await tx.classBooking.count({
+        where: { scheduleId: schedule.id, status: { not: 'CANCELLED' } },
+      });
+      if (activeCount >= schedule.maxCapacity) {
+        throw new BadRequestException('Kuota kelas studio sudah penuh (Full Booked)');
+      }
 
-    const alreadyBooked = activeBookings.find((b) => b.memberId === body.memberId);
-    if (alreadyBooked) {
-      throw new BadRequestException('Member sudah terdaftar pada jadwal kelas ini');
-    }
+      const alreadyBooked = await tx.classBooking.findFirst({
+        where: { scheduleId: schedule.id, memberId: body.memberId, status: { not: 'CANCELLED' } },
+      });
+      if (alreadyBooked) {
+        throw new BadRequestException('Member sudah terdaftar pada jadwal kelas ini');
+      }
 
-    const [booking] = await this.prisma.$transaction([
-      this.prisma.classBooking.create({
+      const newCount = activeCount + 1;
+      const booking = await tx.classBooking.create({
         data: {
           scheduleId: schedule.id,
           memberId: body.memberId,
           status: 'BOOKED',
         },
         include: { member: true, schedule: { include: { studioClass: true } } },
-      }),
-      this.prisma.classSchedule.update({
+      });
+
+      await tx.classSchedule.update({
         where: { id: schedule.id },
         data: {
-          bookedCount: activeBookings.length + 1,
-          status: activeBookings.length + 1 >= schedule.maxCapacity ? 'FULL' : 'OPEN',
+          bookedCount: newCount,
+          status: newCount >= schedule.maxCapacity ? 'FULL' : 'OPEN',
         },
-      }),
-    ]);
+      });
 
-    return booking;
+      return booking;
+    });
   }
 
   async updateBookingStatus(bookingId: string, status: 'ATTENDED' | 'CANCELLED' | 'ABSENT') {
     const booking = await this.prisma.classBooking.findUnique({ where: { id: bookingId } });
     if (!booking) throw new NotFoundException('Booking tidak ditemukan');
 
-    const updated = await this.prisma.classBooking.update({
-      where: { id: bookingId },
-      data: {
-        status,
-        attendedAt: status === 'ATTENDED' ? new Date() : null,
-      },
-    });
-
-    if (status === 'CANCELLED') {
-      await this.prisma.classSchedule.update({
-        where: { id: booking.scheduleId },
-        data: { bookedCount: { decrement: 1 }, status: 'OPEN' },
+    return this.prisma.runWithAdvisoryLock(`class_book:${booking.scheduleId}`, async (tx) => {
+      const updated = await tx.classBooking.update({
+        where: { id: bookingId },
+        data: {
+          status,
+          attendedAt: status === 'ATTENDED' ? new Date() : null,
+        },
       });
-    }
 
-    return updated;
+      const activeCount = await tx.classBooking.count({
+        where: { scheduleId: booking.scheduleId, status: { not: 'CANCELLED' } },
+      });
+      const schedule = await tx.classSchedule.findUnique({
+        where: { id: booking.scheduleId },
+        select: { maxCapacity: true },
+      });
+      const isFull = schedule ? activeCount >= schedule.maxCapacity : false;
+
+      await tx.classSchedule.update({
+        where: { id: booking.scheduleId },
+        data: { bookedCount: activeCount, status: isFull ? 'FULL' : 'OPEN' },
+      });
+
+      return updated;
+    });
   }
 }
 
