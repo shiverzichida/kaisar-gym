@@ -161,7 +161,7 @@ export default function MemberPortalPage() {
             coachTitle,
             coachPhoto:
               sc.trainer?.photoUrl ||
-              'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&auto=format&fit=crop&q=80',
+              '/assets/coaches/hendra-pratama.jpg',
             dateTime,
             room,
             totalSlots,
@@ -219,8 +219,7 @@ export default function MemberPortalPage() {
             category: 'Pilates Reformer',
             coachName: 'Coach Mei',
             coachTitle: 'Pilates Specialist',
-            coachPhoto:
-              'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&auto=format&fit=crop&q=80',
+            coachPhoto: '/assets/coaches/sarah-wijaya.jpg',
             dateTime: 'Wed, 22 Oct 2026 • 18:30 - 19:30 WIB',
             room: 'Pilates Sanctuary - Level 2',
             totalSlots: 8,
@@ -233,8 +232,7 @@ export default function MemberPortalPage() {
             category: 'Strength & Conditioning',
             coachName: 'Coach Hendra',
             coachTitle: 'Strength Specialist',
-            coachPhoto:
-              'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&auto=format&fit=crop&q=80',
+            coachPhoto: '/assets/coaches/hendra-pratama.jpg',
             dateTime: 'Wed, 22 Oct 2026 • 19:45 - 20:45 WIB',
             room: 'Main Studio 1 - Ground Floor',
             totalSlots: 20,
@@ -937,31 +935,37 @@ export default function MemberPortalPage() {
                         <img
                           src={cls.coachPhoto}
                           alt={cls.coachName}
-                          className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                          className="w-full h-full object-cover object-top group-hover:scale-105 transition duration-500"
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-[#0F172A] via-transparent to-black/40" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-[#0F172A] via-transparent to-black/45" />
 
-                        <div className="absolute top-3 left-3 px-3 py-1 rounded-full bg-black/70 backdrop-blur-md border border-white/20 text-white text-[11px] font-bold flex items-center gap-1.5 shadow-md">
-                          <span className="w-2 h-2 rounded-full bg-cyan-400" />
-                          <span>
-                            {cls.coachName} - {cls.coachTitle}
-                          </span>
-                        </div>
+                        <div className="absolute top-3 inset-x-3 flex items-center justify-between gap-2">
+                          <div
+                            title={`${cls.coachName} - ${cls.coachTitle}`}
+                            className="min-w-0 max-w-[70%] px-2.5 py-1 rounded-full bg-black/75 backdrop-blur-md border border-white/20 text-white text-[11px] font-bold flex items-center gap-1.5 shadow-md"
+                          >
+                            <span className="w-2 h-2 rounded-full bg-cyan-400 shrink-0" />
+                            <span className="truncate">
+                              {cls.coachName}
+                              {cls.coachTitle ? ` · ${cls.coachTitle}` : ''}
+                            </span>
+                          </div>
 
-                        <div className="absolute top-3 right-3">
-                          {cls.isEnded ? (
-                            <span className="px-2.5 py-1 rounded-full bg-slate-900/80 text-slate-400 text-[10px] font-bold border border-white/10">
-                              Class Ended
-                            </span>
-                          ) : isFull ? (
-                            <span className="px-2.5 py-1 rounded-full bg-rose-500/80 text-white text-[10px] font-bold">
-                              Penuh (Waitlist)
-                            </span>
-                          ) : (
-                            <span className="px-2.5 py-1 rounded-full bg-emerald-500/80 text-white text-[10px] font-bold">
-                              Tersedia
-                            </span>
-                          )}
+                          <div className="shrink-0">
+                            {cls.isEnded ? (
+                              <span className="inline-block px-2.5 py-1 rounded-full bg-slate-900/85 text-slate-400 text-[10px] font-bold border border-white/10 whitespace-nowrap">
+                                Class Ended
+                              </span>
+                            ) : isFull ? (
+                              <span className="inline-block px-2.5 py-1 rounded-full bg-rose-500/85 text-white text-[10px] font-bold whitespace-nowrap shadow-md">
+                                Penuh (Waitlist)
+                              </span>
+                            ) : (
+                              <span className="inline-block px-2.5 py-1 rounded-full bg-emerald-500/85 text-white text-[10px] font-bold whitespace-nowrap shadow-md">
+                                Tersedia
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
 
@@ -1305,12 +1309,9 @@ export default function MemberPortalPage() {
                     >
                       <div className="h-44 overflow-hidden relative">
                         <img
-                          src={
-                            coach.photoUrl ||
-                            `https://images.unsplash.com/photo-${1573496359142 + idx * 500}?w=300&auto=format&fit=crop&q=80`
-                          }
+                          src={coach.photoUrl || '/assets/coaches/hendra-pratama.jpg'}
                           alt={coach.fullName}
-                          className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                          className="w-full h-full object-cover object-top group-hover:scale-105 transition duration-300"
                         />
                         <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-black/70 backdrop-blur-sm border border-white/20 text-[#FFC067] text-[10px] font-bold flex items-center gap-1">
                           <Star className="w-3 h-3 fill-[#FFC067]" />
