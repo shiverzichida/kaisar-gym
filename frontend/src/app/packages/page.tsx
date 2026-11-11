@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import AppShell from '@/components/AppShell';
 import TableScrollWrapper from '@/components/TableScrollWrapper';
-import { apiFetch, formatRp } from '@/lib/api';
+import { apiFetch, formatRp, primeApiCache } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import {
@@ -90,10 +90,16 @@ function PackagesContent() {
     setLoading(true);
     try {
       const data = await apiFetch('/pos/catalog');
+      const packages = data?.packages || [];
+      const ptPackages = data?.ptPackages || [];
+      const products = data?.products || [];
+      packages.forEach((p: any) => primeApiCache(`/pos/packages/${p.id}`, p));
+      ptPackages.forEach((pt: any) => primeApiCache(`/pos/pt-packages/${pt.id}`, pt));
+      products.forEach((prd: any) => primeApiCache(`/pos/products/${prd.id}`, prd));
       setCatalog({
-        packages: data?.packages || [],
-        ptPackages: data?.ptPackages || [],
-        products: data?.products || [],
+        packages,
+        ptPackages,
+        products,
       });
     } catch (err: any) {
       showError(err.message || 'Gagal memuat katalog');

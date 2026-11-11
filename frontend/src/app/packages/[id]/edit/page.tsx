@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import AppShell from '@/components/AppShell';
-import { apiFetch, formatRp } from '@/lib/api';
+import { apiFetch, formatRp, getCachedApiData } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import {
@@ -70,61 +70,15 @@ function EditPackageContent({ id }: { id: string }) {
     isActive: true,
   });
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      let resolvedType = itemType;
-      let data: any = null;
+  const getEndpointForType = (type: 'MEMBERSHIP' | 'PT_PACKAGE' | 'PRODUCT', itemId: string) => {
+    if (type === 'MEMBERSHIP') return `/pos/packages/${itemId}`;
+    if (type === 'PT_PACKAGE') return `/pos/pt-packages/${itemId}`;
+    return `/pos/products/${itemId}`;
+  };
 
-      // Try current resolved type first
-      if (resolvedType === 'MEMBERSHIP') {
-        try {
-          data = await apiFetch(`/pos/packages/${id}`);
-        } catch {
-          data = null;
-        }
-      } else if (resolvedType === 'PT_PACKAGE') {
-        try {
-          data = await apiFetch(`/pos/pt-packages/${id}`);
-        } catch {
-          data = null;
-        }
-      } else {
-        try {
-          data = await apiFetch(`/pos/products/${id}`);
-        } catch {
-          data = null;
-        }
-      }
-
-      // If not found, search through catalog
-      if (!data) {
-        const cat = await apiFetch<any>('/pos/catalog');
-        const foundPkg = cat.packages?.find((p: any) => p.id === id);
-        if (foundPkg) {
-          resolvedType = 'MEMBERSHIP';
-          data = foundPkg;
-        } else {
-          const foundPt = cat.ptPackages?.find((p: any) => p.id === id);
-          if (foundPt) {
-            resolvedType = 'PT_PACKAGE';
-            data = foundPt;
-          } else {
-            const foundProd = cat.products?.find((p: any) => p.id === id);
-            if (foundProd) {
-              resolvedType = 'PRODUCT';
-              data = foundProd;
-            }
-          }
-        }
-      }
-
-      if (!data) {
-        throw new Error('Item paket atau produk tidak ditemukan.');
-      }
-
+  const applyItemData = useCallback(
+    (resolvedType: 'MEMBERSHIP' | 'PT_PACKAGE' | 'PRODUCT', data: any) => {
       setItemType(resolvedType);
-
       if (resolvedType === 'MEMBERSHIP') {
         setPkgForm({
           code: data.code || '',
@@ -157,6 +111,56 @@ function EditPackageContent({ id }: { id: string }) {
           isActive: data.isActive ?? true,
         });
       }
+    },
+    [],
+  );
+
+  const loadData = useCallback(async () => {
+    const cached = getCachedApiData(getEndpointForType(itemType, id));
+    if (cached) {
+      applyItemData(itemType, cached);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      let resolvedType = itemType;
+      let data: any = null;
+
+      try {
+        data = await apiFetch(getEndpointForType(resolvedType, id));
+      } catch {
+        data = null;
+      }
+
+      // If not found, search through catalog
+      if (!data) {
+        const cat = await apiFetch<any>('/pos/catalog');
+        const foundPkg = cat.packages?.find((p: any) => p.id === id);
+        if (foundPkg) {
+          resolvedType = 'MEMBERSHIP';
+          data = foundPkg;
+        } else {
+          const foundPt = cat.ptPackages?.find((p: any) => p.id === id);
+          if (foundPt) {
+            resolvedType = 'PT_PACKAGE';
+            data = foundPt;
+          } else {
+            const foundProd = cat.products?.find((p: any) => p.id === id);
+            if (foundProd) {
+              resolvedType = 'PRODUCT';
+              data = foundProd;
+            }
+          }
+        }
+      }
+
+      if (!data) {
+        throw new Error('Item paket atau produk tidak ditemukan.');
+      }
+
+      applyItemData(resolvedType, data);
     } catch (err: any) {
       console.error(err);
       setError(err.message || 'Gagal memuat data item.');
@@ -164,7 +168,7 @@ function EditPackageContent({ id }: { id: string }) {
     } finally {
       setLoading(false);
     }
-  }, [id, itemType, showError]);
+  }, [id, itemType, applyItemData, showError]);
 
   useEffect(() => {
     loadData();

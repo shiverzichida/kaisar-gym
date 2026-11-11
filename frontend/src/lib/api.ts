@@ -1,9 +1,11 @@
 export function getApiBaseUrl(): string {
-  if (process.env.NEXT_PUBLIC_API_URL) {
-    return process.env.NEXT_PUBLIC_API_URL;
-  }
+  // Always route browser requests via same-origin /api rewrite so Next.js proxies
+  // over internal Docker/local network without an extra cross-origin TLS handshake.
   if (typeof window !== 'undefined') {
     return '/api';
+  }
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL;
   }
   return 'http://localhost:4000/api';
 }
@@ -13,6 +15,18 @@ export const API_BASE_URL = getApiBaseUrl();
 // In-Memory Client Cache for ultra-fast instant page transitions
 const apiCache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_TTL_MS = 30_000; // 30 seconds TTL
+
+export function getCachedApiData<T = any>(path: string): T | null {
+  const cached = apiCache.get(path);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    return cached.data as T;
+  }
+  return null;
+}
+
+export function primeApiCache(path: string, data: any): void {
+  apiCache.set(path, { data, timestamp: Date.now() });
+}
 
 export function clearApiCache(pathPrefix?: string) {
   if (!pathPrefix) {
