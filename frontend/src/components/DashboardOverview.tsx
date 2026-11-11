@@ -95,6 +95,7 @@ export default function DashboardOverview({
   }).length;
 
   const todayFormatted = new Intl.DateTimeFormat('id-ID', {
+    timeZone: 'Asia/Jakarta',
     weekday: 'long',
     day: 'numeric',
     month: 'long',
