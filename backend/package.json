@@ -11,6 +11,7 @@
     "start:prod": "node dist/main",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push --accept-data-loss",
+    "prisma:rls": "node -e \"const { Client } = require('pg'); const c = new Client({ connectionString: process.env.DIRECT_URL || process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } }); c.connect().then(() => c.query(\\\"SELECT tablename FROM pg_tables WHERE schemaname = 'public'\\\")).then(r => Promise.all(r.rows.map(t => c.query(\\\"ALTER TABLE public.\\\\\\\"\\\" + t.tablename + \\\"\\\\\\\" ENABLE ROW LEVEL SECURITY;\\\")))).then(() => { console.log('RLS enabled for all tables'); c.end(); });\"",
     "prisma:seed": "ts-node prisma/seed.ts"
   },
   "dependencies": {
