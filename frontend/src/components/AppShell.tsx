@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
@@ -218,6 +218,16 @@ export default function AppShell({ children, onRefresh, loading = false }: AppSh
   };
 
   const currentTitle = getBreadcrumbTitle(pathname);
+  const sidebarNavRef = useRef<HTMLElement | null>(null);
+
+  useLayoutEffect(() => {
+    const navEl = sidebarNavRef.current;
+    if (!navEl) return;
+    const saved = sessionStorage.getItem('kg_sidebar_scroll');
+    if (saved !== null) {
+      navEl.scrollTop = Number(saved) || 0;
+    }
+  }, [pathname, sidebarOpen]);
 
   // Close menus when clicking outside
   useEffect(() => {
@@ -254,7 +264,13 @@ export default function AppShell({ children, onRefresh, loading = false }: AppSh
           </div>
 
           {/* Grouped Scrollable Navigation */}
-          <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-5">
+          <nav
+            ref={sidebarNavRef}
+            onScroll={(e) => {
+              sessionStorage.setItem('kg_sidebar_scroll', String(e.currentTarget.scrollTop));
+            }}
+            className="flex-1 overflow-y-auto py-4 px-3 space-y-5"
+          >
             {navGroups.map((grp) => (
               <div key={grp.group} className="space-y-1">
                 <div className="px-2.5 pb-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
@@ -270,6 +286,14 @@ export default function AppShell({ children, onRefresh, loading = false }: AppSh
                       key={`${grp.group}-${item.label}`}
                       href={item.href}
                       prefetch={true}
+                      onClick={() => {
+                        if (sidebarNavRef.current) {
+                          sessionStorage.setItem(
+                            'kg_sidebar_scroll',
+                            String(sidebarNavRef.current.scrollTop),
+                          );
+                        }
+                      }}
                       className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-[12px] font-medium transition-all ${
                         isActive
                           ? 'bg-[#FFC067]/15 text-[#FFC067] border border-[#FFC067]/40 font-bold shadow-sm'

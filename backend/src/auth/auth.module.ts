@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Module, NotFoundException, Param, Patch, Post, UnauthorizedException, Injectable } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Module, NotFoundException, Param, Patch, Post, UnauthorizedException, Injectable } from '@nestjs/common';
 import { JwtModule, JwtService } from '@nestjs/jwt';
 import { Throttle } from '@nestjs/throttler';
 import * as bcrypt from 'bcryptjs';
@@ -199,6 +199,19 @@ export class AuthService {
     await this.prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
     return { success: true };
   }
+
+  async deleteStaffUser(id: string) {
+    const existing = await this.prisma.user.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Akun staff tidak ditemukan');
+    try {
+      await this.prisma.user.delete({ where: { id } });
+      return { success: true };
+    } catch {
+      throw new BadRequestException(
+        'Akun tidak dapat dihapus karena sudah memiliki riwayat transaksi atau shift. Silakan nonaktifkan akun ini.',
+      );
+    }
+  }
 }
 
 @Controller('auth')
@@ -229,6 +242,11 @@ export class AuthController {
   @Patch('users/:id')
   updateUser(@Param('id') id: string, @Body() body: any) {
     return this.authService.updateStaffUser(id, body);
+  }
+
+  @Delete('users/:id')
+  deleteUser(@Param('id') id: string) {
+    return this.authService.deleteStaffUser(id);
   }
 
   @Post('users/:id/reset-password')

@@ -4,10 +4,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import AppShell from '@/components/AppShell';
 import TableScrollWrapper from '@/components/TableScrollWrapper';
 import { apiFetch } from '@/lib/api';
-import { confirmUpdate, promptInput } from '@/lib/swal';
+import { confirmDelete, confirmUpdate, promptInput } from '@/lib/swal';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
-import { ShieldCheck, UserPlus, KeyRound, RefreshCw, X } from 'lucide-react';
+import { ShieldCheck, UserPlus, KeyRound, RefreshCw, X, Pencil, Trash2 } from 'lucide-react';
 
 export default function StaffPage() {
   const { currentUser } = useAuth();
@@ -16,7 +16,8 @@ export default function StaffPage() {
   const [loading, setLoading] = useState(true);
   const [syncLoading, setSyncLoading] = useState(false);
 
-  const [showAddModal, setShowAddModal] = useState(false);
+  const [showUserModal, setShowUserModal] = useState(false);
+  const [editingUser, setEditingUser] = useState<any | null>(null);
   const [userForm, setUserForm] = useState({
     username: '',
     fullName: '',
@@ -24,6 +25,7 @@ export default function StaffPage() {
     email: '',
     phone: '',
     password: '',
+    isActive: true,
   });
 
   const [passForm, setPassForm] = useState({
@@ -48,16 +50,77 @@ export default function StaffPage() {
     loadUsers();
   }, [loadUsers]);
 
-  const handleCreateUser = async (e: React.FormEvent) => {
+  const openAddModal = () => {
+    setEditingUser(null);
+    setUserForm({
+      username: '',
+      fullName: '',
+      role: 'CASHIER',
+      email: '',
+      phone: '',
+      password: '',
+      isActive: true,
+    });
+    setShowUserModal(true);
+  };
+
+  const openEditModal = (u: any) => {
+    setEditingUser(u);
+    setUserForm({
+      username: u.username || '',
+      fullName: u.fullName || '',
+      role: u.role || 'CASHIER',
+      email: u.email || '',
+      phone: u.phone || '',
+      password: '',
+      isActive: Boolean(u.isActive),
+    });
+    setShowUserModal(true);
+  };
+
+  const handleSaveUser = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await apiFetch('/auth/users', {
-        method: 'POST',
-        body: JSON.stringify(userForm),
-      });
-      showSuccess(`Akun "${userForm.username}" berhasil dibuat!`);
-      setShowAddModal(false);
-      setUserForm({ username: '', fullName: '', role: 'CASHIER', email: '', phone: '', password: '' });
+      if (editingUser) {
+        await apiFetch(`/auth/users/${editingUser.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            fullName: userForm.fullName,
+            role: userForm.role,
+            email: userForm.email,
+            phone: userForm.phone,
+            isActive: userForm.isActive,
+          }),
+        });
+        showSuccess(`Akun "${editingUser.username}" berhasil diperbarui!`);
+      } else {
+        await apiFetch('/auth/users', {
+          method: 'POST',
+          body: JSON.stringify(userForm),
+        });
+        showSuccess(`Akun "${userForm.username}" berhasil dibuat!`);
+      }
+      setShowUserModal(false);
+      setEditingUser(null);
+      loadUsers();
+    } catch (err: any) {
+      showError(err.message);
+    }
+  };
+
+  const handleDeleteUser = async (u: any) => {
+    if (u.id === currentUser?.id) {
+      showError('Tidak dapat menghapus akun yang sedang aktif digunakan');
+      return;
+    }
+    const ok = await confirmDelete({
+      title: `Hapus Akun @${u.username}?`,
+      text: `Akun "${u.fullName}" akan dihapus permanen jika belum memiliki riwayat transaksi/shift.`,
+    });
+    if (!ok) return;
+    try {
+      await apiFetch(`/auth/users/${u.id}`, { method: 'DELETE' });
+      showSuccess(`Akun @${u.username} berhasil dihapus`);
       loadUsers();
     } catch (err: any) {
       showError(err.message);
@@ -175,7 +238,7 @@ export default function StaffPage() {
               Sync Auto-Expiry Member
             </button>
             <button
-              onClick={() => setShowAddModal(true)}
+              onClick={openAddModal}
               className="px-4 py-2 rounded-xl bg-[#FFC067] hover:bg-[#FFB040] text-slate-950 font-black text-xs inline-flex items-center gap-1.5"
             >
               <UserPlus className="w-4 h-4" /> Tambah Staff
@@ -215,12 +278,30 @@ export default function StaffPage() {
                         </button>
                       </td>
                       <td className="py-3 px-4 text-right">
-                        <button
-                          onClick={() => handleResetPassword(u)}
-                          className="px-2.5 py-1 rounded-lg bg-[#070D1E] border border-white/10 text-amber-400 hover:bg-white/5 text-[11px] font-bold inline-flex items-center gap-1"
-                        >
-                          <KeyRound className="w-3 h-3" /> Reset Password
-                        </button>
+                        <div className="inline-flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => openEditModal(u)}
+                            title="Edit Staff"
+                            className="px-2.5 py-1 rounded-lg bg-[#070D1E] border border-white/10 text-sky-400 hover:bg-white/5 text-[11px] font-bold inline-flex items-center gap-1"
+                          >
+                            <Pencil className="w-3 h-3" /> Edit
+                          </button>
+                          <button
+                            onClick={() => handleResetPassword(u)}
+                            title="Reset Password"
+                            className="px-2.5 py-1 rounded-lg bg-[#070D1E] border border-white/10 text-amber-400 hover:bg-white/5 text-[11px] font-bold inline-flex items-center gap-1"
+                          >
+                            <KeyRound className="w-3 h-3" /> Reset
+                          </button>
+                          <button
+                            onClick={() => handleDeleteUser(u)}
+                            disabled={u.id === currentUser?.id}
+                            title={u.id === currentUser?.id ? 'Tidak bisa menghapus akun sendiri' : 'Hapus Staff'}
+                            className="p-1.5 rounded-lg bg-[#070D1E] border border-white/10 text-rose-400 hover:bg-rose-500/10 disabled:opacity-30 disabled:cursor-not-allowed"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -278,18 +359,22 @@ export default function StaffPage() {
         </div>
       </div>
 
-      {showAddModal && (
+      {showUserModal && (
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
-          <form onSubmit={handleCreateUser} className="w-full max-w-md rounded-2xl bg-[#0F172A] border border-white/15 p-5 space-y-3">
+          <form onSubmit={handleSaveUser} className="w-full max-w-md rounded-2xl bg-[#0F172A] border border-white/15 p-5 space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-black text-white">Tambah Akun Staff Baru</h2>
-              <button type="button" onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-white"><X className="w-4 h-4" /></button>
+              <h2 className="text-sm font-black text-white">
+                {editingUser ? `Edit Akun Staff (@${editingUser.username})` : 'Tambah Akun Staff Baru'}
+              </h2>
+              <button type="button" onClick={() => setShowUserModal(false)} className="text-slate-400 hover:text-white"><X className="w-4 h-4" /></button>
             </div>
             <div className="space-y-3 text-xs">
-              <div>
-                <label className="block text-slate-400 mb-1">Username</label>
-                <input required value={userForm.username} onChange={(e) => setUserForm({ ...userForm, username: e.target.value })} className="w-full rounded-lg bg-[#070D1E] border border-white/10 px-3 py-2 text-white font-mono" placeholder="kasir2" />
-              </div>
+              {!editingUser && (
+                <div>
+                  <label className="block text-slate-400 mb-1">Username</label>
+                  <input required value={userForm.username} onChange={(e) => setUserForm({ ...userForm, username: e.target.value })} className="w-full rounded-lg bg-[#070D1E] border border-white/10 px-3 py-2 text-white font-mono" placeholder="kasir2" />
+                </div>
+              )}
               <div>
                 <label className="block text-slate-400 mb-1">Nama Lengkap</label>
                 <input required value={userForm.fullName} onChange={(e) => setUserForm({ ...userForm, fullName: e.target.value })} className="w-full rounded-lg bg-[#070D1E] border border-white/10 px-3 py-2 text-white" />
@@ -299,18 +384,39 @@ export default function StaffPage() {
                 <select value={userForm.role} onChange={(e) => setUserForm({ ...userForm, role: e.target.value })} className="w-full rounded-lg bg-[#070D1E] border border-white/10 px-3 py-2 text-white">
                   <option value="CASHIER">CASHIER (Kasir / Front Desk)</option>
                   <option value="OPS_MANAGER">OPS_MANAGER (Manager Operasional)</option>
+                  <option value="STUDIO_MANAGER">STUDIO_MANAGER (Studio Manager)</option>
                   <option value="MARKETING">MARKETING (Marketing &amp; CRM)</option>
+                  <option value="TRAINER">TRAINER (Personal Trainer)</option>
                   <option value="SUPER_ADMIN">SUPER_ADMIN (Owner / Admin)</option>
                 </select>
               </div>
-              <div>
-                <label className="block text-slate-400 mb-1">Password Awal (min. 6 karakter)</label>
-                <input type="password" minLength={6} required value={userForm.password} onChange={(e) => setUserForm({ ...userForm, password: e.target.value })} className="w-full rounded-lg bg-[#070D1E] border border-white/10 px-3 py-2 text-white" />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-400 mb-1">Email (Opsional)</label>
+                  <input type="email" value={userForm.email} onChange={(e) => setUserForm({ ...userForm, email: e.target.value })} className="w-full rounded-lg bg-[#070D1E] border border-white/10 px-3 py-2 text-white" placeholder="staff@kaisargym.id" />
+                </div>
+                <div>
+                  <label className="block text-slate-400 mb-1">No. HP (Opsional)</label>
+                  <input value={userForm.phone} onChange={(e) => setUserForm({ ...userForm, phone: e.target.value })} className="w-full rounded-lg bg-[#070D1E] border border-white/10 px-3 py-2 text-white" placeholder="0812..." />
+                </div>
               </div>
+              {!editingUser ? (
+                <div>
+                  <label className="block text-slate-400 mb-1">Password Awal (min. 6 karakter)</label>
+                  <input type="password" minLength={6} required value={userForm.password} onChange={(e) => setUserForm({ ...userForm, password: e.target.value })} className="w-full rounded-lg bg-[#070D1E] border border-white/10 px-3 py-2 text-white" />
+                </div>
+              ) : (
+                <label className="flex items-center gap-2 text-slate-300 pt-1">
+                  <input type="checkbox" checked={userForm.isActive} onChange={(e) => setUserForm({ ...userForm, isActive: e.target.checked })} />
+                  <span>Akun Aktif</span>
+                </label>
+              )}
             </div>
             <div className="flex justify-end gap-2 pt-2">
-              <button type="button" onClick={() => setShowAddModal(false)} className="px-4 py-2 rounded-lg bg-slate-800 text-xs text-slate-300">Batal</button>
-              <button type="submit" className="px-4 py-2 rounded-lg bg-[#FFC067] text-slate-950 font-black text-xs">Buat Akun</button>
+              <button type="button" onClick={() => setShowUserModal(false)} className="px-4 py-2 rounded-lg bg-slate-800 text-xs text-slate-300">Batal</button>
+              <button type="submit" className="px-4 py-2 rounded-lg bg-[#FFC067] text-slate-950 font-black text-xs">
+                {editingUser ? 'Simpan Perubahan' : 'Buat Akun'}
+              </button>
             </div>
           </form>
         </div>
