@@ -211,6 +211,7 @@ export default function ClassesPage() {
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<Schedule | null>(null);
+  const [generatingSchedules, setGeneratingSchedules] = useState(false);
 
   // Form state for Add/Edit
   const [scheduleForm, setScheduleForm] = useState({
@@ -456,12 +457,36 @@ export default function ClassesPage() {
 
   // Generate Weekly Schedules
   const handleGenerateSchedules = async () => {
+    const tplCount = classesData?.templates?.length || 0;
+    const confirmed = await confirmUpdate({
+      title: 'Generate Jadwal Berulang?',
+      text:
+        tplCount > 0
+          ? `Sistem akan men-generate jadwal kelas minggu ini dari ${tplCount} template jadwal berulang yang aktif (tanpa duplikasi).`
+          : 'Generate jadwal kelas minggu ini dari template jadwal berulang yang aktif?',
+      confirmText: 'Ya, Generate Jadwal',
+    });
+    if (!confirmed) return;
+
+    setGeneratingSchedules(true);
     try {
       const res = await apiFetch('/classes/generate-schedules', { method: 'POST' });
-      showSuccess(`Berhasil meng-generate ${res.generatedCount} jadwal kelas baru!`, 'Jadwal Diperbarui');
-      loadData();
+      const count = Number(res?.generatedCount || 0);
+      if (count > 0) {
+        setFromDateFilter('');
+        setAppliedFilters((prev) => ({ ...prev, fromDate: '' }));
+        showSuccess(`Berhasil meng-generate ${count} jadwal kelas baru minggu ini!`, 'Jadwal Diperbarui');
+      } else {
+        showSuccess(
+          'Semua jadwal berulang minggu ini sudah tersedia (atau belum ada template aktif).',
+          'Jadwal Sudah Lengkap',
+        );
+      }
+      await loadData();
     } catch (err: any) {
       showError(err.message, 'Gagal Generate Jadwal');
+    } finally {
+      setGeneratingSchedules(false);
     }
   };
 
@@ -710,10 +735,11 @@ export default function ClassesPage() {
             <button
               type="button"
               onClick={handleGenerateSchedules}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md transition"
+              disabled={generatingSchedules}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold text-xs shadow-md transition"
             >
-              <RefreshCw className="w-4 h-4" />
-              <span>Jadwal Berulang</span>
+              <RefreshCw className={`w-4 h-4 ${generatingSchedules ? 'animate-spin' : ''}`} />
+              <span>{generatingSchedules ? 'Generating...' : 'Jadwal Berulang'}</span>
             </button>
           </div>
         </div>

@@ -136,6 +136,17 @@ export class ClassesService {
 
     for (const tpl of templates) {
       const targetDate = new Date(weekMondayUtc.getTime() + (tpl.dayOfWeek - 1) * 24 * 60 * 60 * 1000);
+      const exists = await this.prisma.classSchedule.findFirst({
+        where: {
+          studioClassId: tpl.studioClassId,
+          trainerId: tpl.trainerId,
+          scheduleDate: targetDate,
+          startTime: tpl.startTime,
+        },
+        select: { id: true },
+      });
+      if (exists) continue;
+
       const sched = await this.prisma.classSchedule.create({
         data: {
           studioClassId: tpl.studioClassId,
