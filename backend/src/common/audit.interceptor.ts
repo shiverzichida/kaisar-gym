@@ -1,4 +1,5 @@
-import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from '@nestjs/common';
+import { CallHandler, ExecutionContext, Injectable, NestInterceptor, Optional } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import { PrismaService } from '../prisma/prisma.service';
@@ -80,7 +81,29 @@ function sanitizeJson(input: unknown): any {
 
 @Injectable()
 export class AuditInterceptor implements NestInterceptor {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly jwtService?: JwtService,
+  ) {}
+
+  private extractVerifiedActor(headers: Record<string, any>): { userId?: string; userName?: string; userRole?: string } | null {
+    const authHeader = headers['authorization'];
+    if (typeof authHeader !== 'string' || !authHeader.startsWith('Bearer ') || !this.jwtService) {
+      return null;
+    }
+    const token = authHeader.slice(7).trim();
+    if (!token) return null;
+    try {
+      const decoded = this.jwtService.verify<{ sub?: string; username?: string; fullName?: string; role?: string }>(token);
+      return {
+        userId: decoded?.sub ? String(decoded.sub) : undefined,
+        userName: decoded?.fullName || decoded?.username ? String(decoded.fullName || decoded.username) : undefined,
+        userRole: decoded?.role ? String(decoded.role) : undefined,
+      };
+    } catch {
+      return null;
+    }
+  }
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     if (context.getType() !== 'http') return next.handle();
@@ -97,15 +120,20 @@ export class AuditInterceptor implements NestInterceptor {
 
     const headers = req.headers || {};
     const body = (req.body && typeof req.body === 'object') ? req.body : {};
-    const userId = decodeHeaderValue(headers['x-actor-id'], '') || undefined;
-    const userName = decodeHeaderValue(
-      headers['x-actor-name'],
-      String(body.actorName || body.cashierName || body.openedBy || body.closedBy || 'Administrator'),
-    );
-    const userRole = decodeHeaderValue(
-      headers['x-actor-role'],
-      String(body.actorRole || 'ADMIN'),
-    );
+    const verifiedActor = this.extractVerifiedActor(headers);
+    const userId = verifiedActor?.userId || decodeHeaderValue(headers['x-actor-id'], '') || undefined;
+    const userName =
+      verifiedActor?.userName ||
+      decodeHeaderValue(
+        headers['x-actor-name'],
+        String(body.actorName || body.cashierName || body.openedBy || body.closedBy || 'Administrator'),
+      );
+    const userRole =
+      verifiedActor?.userRole ||
+      decodeHeaderValue(
+        headers['x-actor-role'],
+        String(body.actorRole || 'ADMIN'),
+      );
     const ipAddress = String(
       (typeof headers['x-forwarded-for'] === 'string' ? headers['x-forwarded-for'].split(',')[0] : '') ||
         req.ip ||

@@ -72,20 +72,20 @@ export class TrainersService {
     };
   }
 
-  // Deprecated helper kept for compatibility if needed
-  calculateGraduatedCommission(sessionCount: number, t1: number, t2: number, t3: number): number {
-    return sessionCount * 100000;
-  }
-
   async findAll() {
     const trainers = await this.prisma.trainer.findMany({
       include: {
         ptContracts: {
-          include: { member: true, ptPackage: true },
+          include: {
+            member: { select: { id: true, memberCode: true, fullName: true, status: true } },
+            ptPackage: true,
+          },
           orderBy: { createdAt: 'desc' },
         },
         ptSessionLogs: {
-          include: { member: true },
+          include: {
+            member: { select: { id: true, memberCode: true, fullName: true, status: true } },
+          },
           orderBy: { sessionDate: 'desc' },
         },
         salaryRequests: {

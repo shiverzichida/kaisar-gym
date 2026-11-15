@@ -10,7 +10,14 @@ export class GroupsService {
       include: {
         package: true,
         members: {
-          include: {
+          select: {
+            id: true,
+            memberCode: true,
+            fullName: true,
+            phone: true,
+            status: true,
+            isGroupPic: true,
+            parkingActive: true,
             subscriptions: {
               include: { package: true },
               orderBy: { endDate: 'desc' },

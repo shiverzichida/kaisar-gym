@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Injectable, Module, NotFoundException, Post } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Injectable, Module, NotFoundException, Post } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -44,26 +44,39 @@ export class AttendanceService {
 
   // 8.1 & 8.2 Absensi Member Masuk Gym & Turnstile Gate Verification
   async checkInMember(body: { query: string; method?: string }) {
-    const member = await this.prisma.member.findFirst({
-      where: {
-        OR: [
-          { memberCode: { equals: body.query.trim(), mode: 'insensitive' } },
-          { id: body.query.trim() },
-          { fullName: { contains: body.query.trim(), mode: 'insensitive' } },
-        ],
+    const query = String(body?.query || '').trim();
+    if (!query) {
+      throw new BadRequestException('Kode member atau nama wajib diisi');
+    }
+
+    const memberInclude = {
+      groupMembership: true,
+      subscriptions: {
+        include: { package: true },
+        orderBy: { endDate: 'desc' as const },
       },
-      include: {
-        groupMembership: true,
-        subscriptions: {
-          include: { package: true },
-          orderBy: { endDate: 'desc' },
-        },
-        ptContracts: {
-          where: { status: 'ACTIVE', remainingSessions: { gt: 0 } },
-          include: { trainer: true },
-        },
+      ptContracts: {
+        where: { status: 'ACTIVE', remainingSessions: { gt: 0 } },
+        include: { trainer: true },
       },
-    });
+    };
+
+    const member =
+      (await this.prisma.member.findFirst({
+        where: {
+          OR: [
+            { memberCode: { equals: query, mode: 'insensitive' } },
+            { id: query },
+          ],
+        },
+        include: memberInclude,
+      })) ??
+      (await this.prisma.member.findFirst({
+        where: {
+          fullName: { contains: query, mode: 'insensitive' },
+        },
+        include: memberInclude,
+      }));
 
     if (!member) {
       throw new NotFoundException(`Member dengan kode/nama "${body.query}" tidak ditemukan`);
@@ -141,13 +154,24 @@ export class AttendanceService {
     isMockLocation?: boolean;
     selfiePhotoUrl?: string;
   }) {
+    const staffName = String(body?.staffName || '').trim();
+    if (!staffName) {
+      throw new BadRequestException('Nama staf wajib diisi');
+    }
+
+    const lat = Number(body?.latitude);
+    const lng = Number(body?.longitude);
+    if (!Number.isFinite(lat) || lat < -90 || lat > 90 || !Number.isFinite(lng) || lng < -180 || lng > 180) {
+      throw new BadRequestException('Koordinat GPS tidak valid');
+    }
+
     const gymLat = Number(process.env.GYM_LAT || -6.2088);
     const gymLng = Number(process.env.GYM_LNG || 106.8456);
     const maxRadius = Number(process.env.GYM_MAX_RADIUS_METERS || 250);
 
     const distanceMeters = this.calculateDistanceMeters(
-      Number(body.latitude),
-      Number(body.longitude),
+      lat,
+      lng,
       gymLat,
       gymLng,
     );
@@ -155,11 +179,11 @@ export class AttendanceService {
 
     const record = await this.prisma.staffAttendance.create({
       data: {
-        staffName: body.staffName,
+        staffName,
         role: body.role || 'STAFF',
         type: body.type || 'CLOCK_IN',
-        latitude: Number(body.latitude),
-        longitude: Number(body.longitude),
+        latitude: lat,
+        longitude: lng,
         distanceMeters,
         isWithinGeofence,
         isMockLocation: Boolean(body.isMockLocation),

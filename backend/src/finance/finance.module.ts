@@ -20,7 +20,7 @@ export class FinanceService {
   }
 
   async openShift(body: { cashierName: string; startingCashFloat: number; notes?: string }) {
-    return this.prisma.runWithAdvisoryLock(88002, async (tx) => {
+    return this.prisma.runWithAdvisoryLock(88001, async (tx) => {
       const existing = await tx.cashierShift.findFirst({ where: { status: 'OPEN' } });
       if (existing) return existing;
 
@@ -47,7 +47,7 @@ export class FinanceService {
       throw new BadRequestException('Nominal kas fisik akhir shift tidak valid');
     }
 
-    return this.prisma.runWithAdvisoryLock(88002, async (tx) => {
+    return this.prisma.runWithAdvisoryLock(88001, async (tx) => {
       const existing = await tx.cashierShift.findUnique({ where: { id } });
       if (!existing) throw new NotFoundException('Shift kasir tidak ditemukan');
       if (existing.status !== 'OPEN') {
@@ -72,7 +72,7 @@ export class FinanceService {
       throw new BadRequestException('Nominal pengeluaran harus lebih besar dari 0');
     }
 
-    return this.prisma.runWithAdvisoryLock(88002, async (tx) => {
+    return this.prisma.runWithAdvisoryLock(88001, async (tx) => {
       const activeShift = await tx.cashierShift.findFirst({
         where: { status: 'OPEN' },
         orderBy: { startTime: 'desc' },
@@ -108,7 +108,7 @@ export class FinanceService {
       throw new BadRequestException('Stok opname baru harus bilangan bulat >= 0');
     }
 
-    return this.prisma.runWithAdvisoryLock(88002, async (tx) => {
+    return this.prisma.runWithAdvisoryLock(88003, async (tx) => {
       const product = await tx.product.findUnique({ where: { id: productId } });
       if (!product) throw new NotFoundException('Produk tidak ditemukan');
 
@@ -134,15 +134,32 @@ export class FinanceService {
   }
 
   async createRetailProduct(body: any) {
+    const name = String(body?.name || '').trim();
+    if (!name) {
+      throw new BadRequestException('Nama produk wajib diisi');
+    }
+
+    const costPrice = Number(body?.costPrice ?? 0);
+    const sellingPrice = Number(body?.sellingPrice ?? 0);
+    const stock = Number(body?.stock ?? 0);
+    const minStockAlert = Number(body?.minStockAlert ?? 5);
+
+    if (!Number.isFinite(costPrice) || costPrice < 0 || !Number.isFinite(sellingPrice) || sellingPrice < 0) {
+      throw new BadRequestException('Harga beli dan harga jual tidak valid');
+    }
+    if (!Number.isInteger(stock) || stock < 0 || !Number.isInteger(minStockAlert) || minStockAlert < 0) {
+      throw new BadRequestException('Stok dan batas minimum stok harus bilangan bulat >= 0');
+    }
+
     return this.prisma.product.create({
       data: {
-        sku: body.sku || `PRD-${Date.now().toString().slice(-4)}`,
-        name: body.name,
+        sku: body.sku ? String(body.sku).trim() : `PRD-${Date.now().toString().slice(-4)}`,
+        name,
         category: body.category || 'SUPPLEMENT',
-        costPrice: Number(body.costPrice || 0),
-        sellingPrice: Number(body.sellingPrice || 0),
-        stock: Number(body.stock || 0),
-        minStockAlert: Number(body.minStockAlert || 5),
+        costPrice,
+        sellingPrice,
+        stock,
+        minStockAlert,
       },
     });
   }

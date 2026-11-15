@@ -15,6 +15,19 @@ export const API_BASE_URL = getApiBaseUrl();
 // In-Memory Client Cache for ultra-fast instant page transitions
 const apiCache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_TTL_MS = 30_000; // 30 seconds TTL
+const MAX_CACHE_ENTRIES = 100;
+
+function setCachedApiData(path: string, data: any): void {
+  if (apiCache.has(path)) {
+    apiCache.delete(path);
+  } else if (apiCache.size >= MAX_CACHE_ENTRIES) {
+    const oldestKey = apiCache.keys().next().value;
+    if (oldestKey !== undefined) {
+      apiCache.delete(oldestKey);
+    }
+  }
+  apiCache.set(path, { data, timestamp: Date.now() });
+}
 
 export function getCachedApiData<T = any>(path: string): T | null {
   const cached = apiCache.get(path);
@@ -25,7 +38,7 @@ export function getCachedApiData<T = any>(path: string): T | null {
 }
 
 export function primeApiCache(path: string, data: any): void {
-  apiCache.set(path, { data, timestamp: Date.now() });
+  setCachedApiData(path, data);
 }
 
 export function clearApiCache(pathPrefix?: string) {
@@ -56,16 +69,22 @@ export async function apiFetch<T = any>(path: string, options?: RequestInit): Pr
   const url = `${baseUrl}${path.startsWith('/') ? path : `/${path}`}`;
 
   const actorHeaders: Record<string, string> = {};
-  if (!isGet && typeof window !== 'undefined') {
+  if (typeof window !== 'undefined') {
     try {
-      const rawUser = localStorage.getItem('kaisar_gym_user');
-      if (rawUser) {
-        const user = JSON.parse(rawUser);
-        if (user?.id) actorHeaders['x-actor-id'] = encodeURIComponent(String(user.id));
-        if (user?.fullName || user?.username) {
-          actorHeaders['x-actor-name'] = encodeURIComponent(String(user.fullName || user.username));
+      const token = localStorage.getItem('kaisar_gym_token');
+      if (token) {
+        actorHeaders['Authorization'] = `Bearer ${token}`;
+      }
+      if (!isGet) {
+        const rawUser = localStorage.getItem('kaisar_gym_user');
+        if (rawUser) {
+          const user = JSON.parse(rawUser);
+          if (user?.id) actorHeaders['x-actor-id'] = encodeURIComponent(String(user.id));
+          if (user?.fullName || user?.username) {
+            actorHeaders['x-actor-name'] = encodeURIComponent(String(user.fullName || user.username));
+          }
+          if (user?.role) actorHeaders['x-actor-role'] = encodeURIComponent(String(user.role));
         }
-        if (user?.role) actorHeaders['x-actor-role'] = encodeURIComponent(String(user.role));
       }
     } catch {}
   }
@@ -92,7 +111,7 @@ export async function apiFetch<T = any>(path: string, options?: RequestInit): Pr
   const data = await res.json();
 
   if (isGet) {
-    apiCache.set(path, { data, timestamp: Date.now() });
+    setCachedApiData(path, data);
   } else {
     // Invalidate cache on mutations (POST, PUT, PATCH, DELETE)
     apiCache.clear();

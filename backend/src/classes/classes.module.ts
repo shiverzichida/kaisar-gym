@@ -18,10 +18,15 @@ export class ClassesService {
           studioClass: true,
           trainer: true,
           bookings: {
-            include: { member: true },
+            include: {
+              member: {
+                select: { id: true, memberCode: true, fullName: true, phone: true, status: true },
+              },
+            },
           },
         },
         orderBy: [{ scheduleDate: 'desc' }, { startTime: 'asc' }],
+        take: 200,
       }),
     ]);
 

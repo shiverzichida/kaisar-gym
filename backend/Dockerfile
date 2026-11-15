@@ -11,9 +11,10 @@ RUN npm run build
 FROM node:20-alpine
 WORKDIR /app
 RUN apk add --no-cache openssl
-COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/prisma ./prisma
+COPY --from=builder --chown=node:node /app/package*.json ./
+COPY --from=builder --chown=node:node /app/node_modules ./node_modules
+COPY --from=builder --chown=node:node /app/dist ./dist
+COPY --from=builder --chown=node:node /app/prisma ./prisma
+USER node
 EXPOSE 4000
 CMD ["sh", "-c", "npx prisma db push && if [ -f dist/main.js ]; then node dist/main; else node dist/src/main; fi"]

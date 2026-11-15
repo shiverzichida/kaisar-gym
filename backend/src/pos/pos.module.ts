@@ -48,6 +48,17 @@ export class PosService {
       throw new BadRequestException('Keranjang belanja masih kosong');
     }
 
+    if (!body.paymentMethod || !String(body.paymentMethod).trim()) {
+      throw new BadRequestException('Metode pembayaran wajib dipilih');
+    }
+
+    if (body.cashAmount !== undefined && (!Number.isFinite(Number(body.cashAmount)) || Number(body.cashAmount) < 0)) {
+      throw new BadRequestException('Nominal pembayaran tunai tidak valid');
+    }
+    if (body.nonCashAmount !== undefined && (!Number.isFinite(Number(body.nonCashAmount)) || Number(body.nonCashAmount) < 0)) {
+      throw new BadRequestException('Nominal pembayaran non-tunai tidak valid');
+    }
+
     const manualDiscount = Number(body.discountAmount || 0);
     if (!Number.isFinite(manualDiscount) || manualDiscount < 0) {
       throw new BadRequestException('Nominal diskon tidak boleh negatif');

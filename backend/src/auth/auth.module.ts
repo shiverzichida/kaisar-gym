@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Module, Post, UnauthorizedException, Injectable } from '@nestjs/common';
 import { JwtModule, JwtService } from '@nestjs/jwt';
+import { Throttle } from '@nestjs/throttler';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -33,9 +34,17 @@ export class AuthService {
       throw new UnauthorizedException('Username atau akun tidak ditemukan');
     }
 
-    if (password && password !== 'QUICK_DEMO') {
+    const allowDemoQuickLogin = process.env.ALLOW_DEMO_LOGIN !== 'false';
+    if (password === 'QUICK_DEMO') {
+      if (!allowDemoQuickLogin) {
+        throw new UnauthorizedException('Quick demo login dinonaktifkan');
+      }
+    } else {
+      if (!password) {
+        throw new UnauthorizedException('Password wajib diisi');
+      }
       const valid = await bcrypt.compare(password, user.passwordHash);
-      if (!valid && password !== 'kaisar123') {
+      if (!valid) {
         throw new UnauthorizedException('Password salah');
       }
     }
@@ -85,6 +94,7 @@ export class AuthController {
   constructor(private authService: AuthService) {}
 
   @Post('login')
+  @Throttle({ default: { limit: 15, ttl: 60_000 } })
   async login(@Body() body: { username: string; password?: string }) {
     return this.authService.login(body.username, body.password);
   }
@@ -99,7 +109,13 @@ export class AuthController {
   imports: [
     JwtModule.register({
       global: true,
-      secret: process.env.JWT_SECRET || 'kaisar-gym-super-secret-jwt-key-2026',
+      secret:
+        process.env.JWT_SECRET ||
+        (process.env.NODE_ENV === 'production'
+          ? (() => {
+              throw new Error('JWT_SECRET environment variable must be set in production');
+            })()
+          : 'dev-only-insecure-jwt-secret'),
       signOptions: { expiresIn: '7d' },
     }),
   ],
