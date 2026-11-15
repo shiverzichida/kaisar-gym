@@ -212,6 +212,20 @@ export default function ClassesPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<Schedule | null>(null);
   const [generatingSchedules, setGeneratingSchedules] = useState(false);
+  const [templateModalOpen, setTemplateModalOpen] = useState(false);
+  const [tplForm, setTplForm] = useState({
+    studioClassId: '',
+    trainerId: '',
+    dayOfWeek: 1,
+    startTime: '08:00',
+    endTime: '09:00',
+  });
+  const [studioClassForm, setStudioClassForm] = useState({
+    name: '',
+    category: 'ZUMBA',
+    roomName: 'Westfit Studio',
+    maxCapacity: 20,
+  });
 
   // Form state for Add/Edit
   const [scheduleForm, setScheduleForm] = useState({
@@ -730,6 +744,22 @@ export default function ClassesPage() {
             >
               <Plus className="w-4 h-4" />
               <span>Tambah Jadwal</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setTplForm((prev) => ({
+                  ...prev,
+                  studioClassId: prev.studioClassId || classesData?.studioClasses?.[0]?.id || '',
+                  trainerId: prev.trainerId || trainers?.[0]?.id || '',
+                }));
+                setTemplateModalOpen(true);
+              }}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#0F172A] hover:bg-white/10 border border-white/15 text-slate-200 font-bold text-xs shadow-md transition"
+            >
+              <Dumbbell className="w-4 h-4 text-[#FFC067]" />
+              <span>Kelola Template &amp; Kelas</span>
             </button>
 
             <button
@@ -1798,6 +1828,164 @@ export default function ClassesPage() {
                     className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md"
                   >
                     Perbarui Jadwal
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Template & Studio Class Manager Modal */}
+        {templateModalOpen && (
+          <div className="fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4">
+            <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl bg-[#0F172A] border border-white/15 p-5 space-y-5">
+              <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                <div>
+                  <h2 className="text-base font-black text-white">Kelola Template Jadwal Berulang &amp; Master Kelas</h2>
+                  <p className="text-xs text-slate-400">Template di bawah digunakan oleh tombol Jadwal Berulang setiap minggu.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setTemplateModalOpen(false)}
+                  className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Add Template Form */}
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  try {
+                    await apiFetch('/classes/templates', {
+                      method: 'POST',
+                      body: JSON.stringify(tplForm),
+                    });
+                    showSuccess('Template jadwal berulang ditambahkan!');
+                    loadData();
+                  } catch (err: any) {
+                    showError(err.message);
+                  }
+                }}
+                className="rounded-xl bg-[#070D1E] border border-white/10 p-4 space-y-3"
+              >
+                <div className="text-xs font-bold text-[#FFC067]">+ Tambah Template Mingguan</div>
+                <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 text-xs">
+                  <select
+                    required
+                    value={tplForm.studioClassId}
+                    onChange={(e) => setTplForm({ ...tplForm, studioClassId: e.target.value })}
+                    className="rounded-lg bg-[#0F172A] border border-white/10 px-2.5 py-2 text-white"
+                  >
+                    <option value="">-- Pilih Kelas --</option>
+                    {classesData?.studioClasses?.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                  <select
+                    required
+                    value={tplForm.trainerId}
+                    onChange={(e) => setTplForm({ ...tplForm, trainerId: e.target.value })}
+                    className="rounded-lg bg-[#0F172A] border border-white/10 px-2.5 py-2 text-white"
+                  >
+                    <option value="">-- Pilih Trainer --</option>
+                    {trainers.map((t) => (
+                      <option key={t.id} value={t.id}>{t.fullName}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={tplForm.dayOfWeek}
+                    onChange={(e) => setTplForm({ ...tplForm, dayOfWeek: Number(e.target.value) })}
+                    className="rounded-lg bg-[#0F172A] border border-white/10 px-2.5 py-2 text-white"
+                  >
+                    <option value={1}>Senin</option>
+                    <option value={2}>Selasa</option>
+                    <option value={3}>Rabu</option>
+                    <option value={4}>Kamis</option>
+                    <option value={5}>Jumat</option>
+                    <option value={6}>Sabtu</option>
+                    <option value={7}>Minggu</option>
+                  </select>
+                  <div className="flex gap-1">
+                    <input type="time" value={tplForm.startTime} onChange={(e) => setTplForm({ ...tplForm, startTime: e.target.value })} className="w-full rounded-lg bg-[#0F172A] border border-white/10 px-2 py-2 text-white" />
+                    <input type="time" value={tplForm.endTime} onChange={(e) => setTplForm({ ...tplForm, endTime: e.target.value })} className="w-full rounded-lg bg-[#0F172A] border border-white/10 px-2 py-2 text-white" />
+                  </div>
+                  <button type="submit" className="rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-2">
+                    Simpan Template
+                  </button>
+                </div>
+              </form>
+
+              {/* Existing Templates List */}
+              <div className="space-y-2">
+                <div className="text-xs font-bold text-slate-300">Daftar Template Aktif ({classesData?.templates?.length || 0})</div>
+                <div className="divide-y divide-white/5 rounded-xl border border-white/10 bg-[#070D1E] max-h-52 overflow-y-auto">
+                  {(classesData?.templates || []).length === 0 ? (
+                    <div className="p-4 text-center text-xs text-slate-500">Belum ada template mingguan.</div>
+                  ) : (
+                    (classesData?.templates || []).map((tpl: any) => {
+                      const days = ['', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
+                      return (
+                        <div key={tpl.id} className="flex items-center justify-between px-3 py-2 text-xs">
+                          <div>
+                            <span className="font-bold text-white">{tpl.studioClass?.name}</span>{' '}
+                            <span className="text-slate-400">• {days[tpl.dayOfWeek] || tpl.dayOfWeek} ({tpl.startTime} - {tpl.endTime})</span>{' '}
+                            <span className="text-[#FFC067]">• {tpl.trainer?.fullName}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              const ok = await confirmDelete({ title: 'Hapus Template?', text: 'Hapus template jadwal berulang ini?' });
+                              if (!ok) return;
+                              await apiFetch(`/classes/templates/${tpl.id}`, { method: 'DELETE' });
+                              showSuccess('Template dihapus');
+                              loadData();
+                            }}
+                            className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-950/40"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* Add Master Studio Class */}
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  try {
+                    await apiFetch('/classes/studio-classes', {
+                      method: 'POST',
+                      body: JSON.stringify(studioClassForm),
+                    });
+                    showSuccess(`Kelas "${studioClassForm.name}" ditambahkan!`);
+                    setStudioClassForm({ name: '', category: 'ZUMBA', roomName: 'Westfit Studio', maxCapacity: 20 });
+                    loadData();
+                  } catch (err: any) {
+                    showError(err.message);
+                  }
+                }}
+                className="rounded-xl bg-[#070D1E] border border-white/10 p-4 space-y-3"
+              >
+                <div className="text-xs font-bold text-sky-400">+ Tambah Master Kelas Studio Baru</div>
+                <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 text-xs">
+                  <input required placeholder="Nama Kelas (mis. Zumba Party)" value={studioClassForm.name} onChange={(e) => setStudioClassForm({ ...studioClassForm, name: e.target.value })} className="rounded-lg bg-[#0F172A] border border-white/10 px-2.5 py-2 text-white" />
+                  <select value={studioClassForm.category} onChange={(e) => setStudioClassForm({ ...studioClassForm, category: e.target.value })} className="rounded-lg bg-[#0F172A] border border-white/10 px-2.5 py-2 text-white">
+                    <option value="ZUMBA">ZUMBA</option>
+                    <option value="YOGA">YOGA</option>
+                    <option value="AEROBIC">AEROBIC</option>
+                    <option value="BODY_COMBAT">BODY_COMBAT</option>
+                    <option value="PILATES_REFORMER">PILATES_REFORMER</option>
+                    <option value="SPINNING">SPINNING</option>
+                  </select>
+                  <input placeholder="Ruangan" value={studioClassForm.roomName} onChange={(e) => setStudioClassForm({ ...studioClassForm, roomName: e.target.value })} className="rounded-lg bg-[#0F172A] border border-white/10 px-2.5 py-2 text-white" />
+                  <input type="number" min={1} placeholder="Kapasitas" value={studioClassForm.maxCapacity} onChange={(e) => setStudioClassForm({ ...studioClassForm, maxCapacity: Number(e.target.value) })} className="rounded-lg bg-[#0F172A] border border-white/10 px-2.5 py-2 text-white" />
+                  <button type="submit" className="rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-bold px-3 py-2">
+                    Tambah Kelas
                   </button>
                 </div>
               </form>

@@ -143,6 +143,7 @@ export default function AppShell({ children, onRefresh, loading = false }: AppSh
       items: [
         { href: '/members', label: 'Daftar Member', icon: Users },
         { href: '/groups', label: 'Corporate & Group', icon: Building2 },
+        { href: '/marketing', label: 'Promo & Reminder', icon: Tag },
       ],
     },
     {
@@ -160,6 +161,7 @@ export default function AppShell({ children, onRefresh, loading = false }: AppSh
         { href: '/shift', label: 'Shift & Petty Cash', icon: Banknote },
         { href: '/reports', label: 'Laporan & Audit', icon: BarChart3 },
         { href: '/gate', label: 'Turnstile & GPS', icon: ScanLine },
+        { href: '/staff', label: 'Akun Staff & Password', icon: ShieldCheck },
       ],
     },
   ];
@@ -204,6 +206,10 @@ export default function AppShell({ children, onRefresh, loading = false }: AppSh
         return 'Turnstile Gate & Presensi GPS';
       case '/reports':
         return 'Laporan Analitik & Audit Trail';
+      case '/marketing':
+        return 'Voucher Promo, Pengumuman & Reminder WhatsApp';
+      case '/staff':
+        return 'Manajemen Akun Staff & Keamanan Password';
       case '/portals':
         return 'Self-Service Portal Member & PT';
       default:

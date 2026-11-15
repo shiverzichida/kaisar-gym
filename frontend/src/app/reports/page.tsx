@@ -23,12 +23,17 @@ export default function ReportsPage() {
   const [analyticsData, setAnalyticsData] = useState<any>(null);
   const [financeData, setFinanceData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
+      const qs = new URLSearchParams({ txLimit: '200' });
+      if (startDate) qs.set('startDate', startDate);
+      if (endDate) qs.set('endDate', endDate);
       const [anRes, finRes] = await Promise.all([
-        apiFetch('/finance/analytics'),
+        apiFetch(`/finance/analytics?${qs.toString()}`),
         apiFetch('/finance/overview'),
       ]);
       setAnalyticsData(anRes);
@@ -39,15 +44,64 @@ export default function ReportsPage() {
     } finally {
       setLoading(false);
     }
-  }, [showError]);
+  }, [showError, startDate, endDate]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
   const summary = analyticsData?.summary;
-  const peakHours = analyticsData?.peakHours || [];
+  const peakHours = analyticsData?.peakHoursHeatmap || analyticsData?.peakHours || [];
   const auditLogs = analyticsData?.auditLogs || [];
+  const transactions = analyticsData?.transactions || [];
+  const expensesList = analyticsData?.expensesList || [];
+
+  const downloadCsv = (filename: string, headers: string[], rows: (string | number)[][]) => {
+    const escapeCell = (val: string | number) => `"${String(val ?? '').replace(/"/g, '""')}"`;
+    const csvContent =
+      '\uFEFF' +
+      [headers.map(escapeCell).join(','), ...rows.map((r) => r.map(escapeCell).join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportTransactions = () => {
+    downloadCsv(
+      `kaisar-gym-transaksi-${startDate || 'all'}-${endDate || 'all'}.csv`,
+      ['No Invoice', 'Tanggal', 'Member / Tamu', 'Kasir', 'Metode', 'Subtotal', 'Diskon', 'Grand Total'],
+      transactions.map((t: any) => [
+        t.invoiceNumber,
+        formatDateId(t.createdAt),
+        t.member?.fullName || t.guestName || 'Walk-In',
+        t.cashierName,
+        t.paymentMethod,
+        t.subtotal,
+        t.discountAmount,
+        t.grandTotal,
+      ]),
+    );
+  };
+
+  const handleExportExpenses = () => {
+    downloadCsv(
+      `kaisar-gym-pengeluaran-${startDate || 'all'}-${endDate || 'all'}.csv`,
+      ['Tanggal', 'Kategori', 'Deskripsi', 'Nominal', 'Dicatat Oleh'],
+      expensesList.map((e: any) => [
+        formatDateId(e.createdAt),
+        e.category,
+        e.description,
+        e.amount,
+        e.recordedBy,
+      ]),
+    );
+  };
 
   return (
     <AppShell onRefresh={loadData} loading={loading}>
@@ -70,6 +124,37 @@ export default function ReportsPage() {
               </p>
             </div>
           </div>
+
+          {/* Date Filter & Export CSV */}
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="rounded-xl bg-[#0F172A] border border-white/10 px-3 py-1.5 text-xs text-white"
+              title="Dari Tanggal"
+            />
+            <span className="text-xs text-slate-500">s/d</span>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="rounded-xl bg-[#0F172A] border border-white/10 px-3 py-1.5 text-xs text-white"
+              title="Sampai Tanggal"
+            />
+            <button
+              onClick={handleExportTransactions}
+              className="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs inline-flex items-center gap-1.5"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5" /> Export Omset CSV
+            </button>
+            <button
+              onClick={handleExportExpenses}
+              className="px-3 py-2 rounded-xl bg-rose-600/80 hover:bg-rose-600 text-white font-bold text-xs inline-flex items-center gap-1.5"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5" /> Export Pengeluaran CSV
+            </button>
+          </div>
         </div>
 
         {/* 3 Metric Cards */}
@@ -87,7 +172,7 @@ export default function ReportsPage() {
           <div className="rounded-2xl border border-white/10 bg-[#0F172A] p-4">
             <div className="text-xs font-bold text-slate-400">Pengeluaran Operasional</div>
             <div className="text-2xl font-black text-rose-400 mt-1">
-              {formatRp(summary?.totalExpense || 0)}
+              {formatRp(summary?.totalExpenses || 0)}
             </div>
             <div className="text-[11px] text-slate-400 mt-1">
               Petty Cash &amp; Maintenance Rutin
@@ -97,7 +182,7 @@ export default function ReportsPage() {
           <div className="rounded-2xl border border-white/10 bg-[#0F172A] p-4">
             <div className="text-xs font-bold text-slate-400">Net Profit Kas Bersih</div>
             <div className="text-2xl font-black text-[#FFC067] mt-1">
-              {formatRp(summary?.netProfit || 0)}
+              {formatRp(summary?.netOperatingIncome || 0)}
             </div>
             <div className="text-[11px] text-emerald-400 font-semibold mt-1">
               Margin Sehat &amp; Kas Seimbang

@@ -272,6 +272,112 @@ export class ClassesService {
       return updated;
     });
   }
+
+  async createStudioClass(body: {
+    code?: string;
+    name: string;
+    category?: string;
+    roomName?: string;
+    maxCapacity?: number;
+    isPaid?: boolean;
+    price?: number;
+  }) {
+    const name = String(body?.name || '').trim();
+    if (!name) throw new BadRequestException('Nama kelas studio wajib diisi');
+    const maxCapacity = Number(body?.maxCapacity ?? 20);
+    if (!Number.isInteger(maxCapacity) || maxCapacity <= 0) {
+      throw new BadRequestException('Kapasitas kelas harus bilangan bulat positif');
+    }
+    const code =
+      String(body?.code || '').trim().toUpperCase() ||
+      `CLS-${name.replace(/[^A-Za-z0-9]/g, '').slice(0, 4).toUpperCase()}-${Date.now().toString().slice(-3)}`;
+
+    return this.prisma.studioClass.create({
+      data: {
+        code,
+        name,
+        category: body.category || 'CARDIO',
+        roomName: body.roomName || 'Main Studio',
+        maxCapacity,
+        isPaid: Boolean(body.isPaid),
+        price: Number(body.price || 0),
+        isActive: true,
+      },
+    });
+  }
+
+  async updateStudioClass(id: string, body: any) {
+    const existing = await this.prisma.studioClass.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Kelas studio tidak ditemukan');
+    const data: any = {};
+    if (body.code !== undefined) data.code = String(body.code).trim().toUpperCase();
+    if (body.name !== undefined) data.name = String(body.name).trim();
+    if (body.category !== undefined) data.category = body.category;
+    if (body.roomName !== undefined) data.roomName = body.roomName;
+    if (body.maxCapacity !== undefined) data.maxCapacity = Math.max(1, Number(body.maxCapacity));
+    if (body.isPaid !== undefined) data.isPaid = Boolean(body.isPaid);
+    if (body.price !== undefined) data.price = Math.max(0, Number(body.price));
+    if (body.isActive !== undefined) data.isActive = Boolean(body.isActive);
+    return this.prisma.studioClass.update({ where: { id }, data });
+  }
+
+  async deleteStudioClass(id: string) {
+    const existing = await this.prisma.studioClass.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Kelas studio tidak ditemukan');
+    return this.prisma.studioClass.update({ where: { id }, data: { isActive: false } });
+  }
+
+  async createTemplate(body: {
+    studioClassId: string;
+    trainerId: string;
+    dayOfWeek: number;
+    startTime: string;
+    endTime: string;
+    isActive?: boolean;
+  }) {
+    const dayOfWeek = Number(body?.dayOfWeek);
+    if (!body?.studioClassId || !body?.trainerId || !Number.isInteger(dayOfWeek) || dayOfWeek < 1 || dayOfWeek > 7) {
+      throw new BadRequestException('Kelas, trainer, dan hari (1-7) wajib diisi');
+    }
+    if (!body?.startTime || !body?.endTime) {
+      throw new BadRequestException('Jam mulai dan selesai wajib diisi');
+    }
+    return this.prisma.classScheduleTemplate.create({
+      data: {
+        studioClassId: body.studioClassId,
+        trainerId: body.trainerId,
+        dayOfWeek,
+        startTime: body.startTime,
+        endTime: body.endTime,
+        isActive: body.isActive !== undefined ? Boolean(body.isActive) : true,
+      },
+      include: { studioClass: true, trainer: true },
+    });
+  }
+
+  async updateTemplate(id: string, body: any) {
+    const existing = await this.prisma.classScheduleTemplate.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Template jadwal tidak ditemukan');
+    const data: any = {};
+    if (body.studioClassId !== undefined) data.studioClassId = body.studioClassId;
+    if (body.trainerId !== undefined) data.trainerId = body.trainerId;
+    if (body.dayOfWeek !== undefined) data.dayOfWeek = Number(body.dayOfWeek);
+    if (body.startTime !== undefined) data.startTime = body.startTime;
+    if (body.endTime !== undefined) data.endTime = body.endTime;
+    if (body.isActive !== undefined) data.isActive = Boolean(body.isActive);
+    return this.prisma.classScheduleTemplate.update({
+      where: { id },
+      data,
+      include: { studioClass: true, trainer: true },
+    });
+  }
+
+  async deleteTemplate(id: string) {
+    const existing = await this.prisma.classScheduleTemplate.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Template jadwal tidak ditemukan');
+    await this.prisma.classScheduleTemplate.delete({ where: { id } });
+    return { success: true };
+  }
 }
 
 @Controller('classes')
@@ -321,6 +427,36 @@ export class ClassesController {
   @Patch('bookings/:id/status')
   updateStatus(@Param('id') id: string, @Body() body: { status: 'ATTENDED' | 'CANCELLED' | 'ABSENT' }) {
     return this.classesService.updateBookingStatus(id, body.status);
+  }
+
+  @Post('studio-classes')
+  createStudioClass(@Body() body: any) {
+    return this.classesService.createStudioClass(body);
+  }
+
+  @Put('studio-classes/:id')
+  updateStudioClass(@Param('id') id: string, @Body() body: any) {
+    return this.classesService.updateStudioClass(id, body);
+  }
+
+  @Delete('studio-classes/:id')
+  deleteStudioClass(@Param('id') id: string) {
+    return this.classesService.deleteStudioClass(id);
+  }
+
+  @Post('templates')
+  createTemplate(@Body() body: any) {
+    return this.classesService.createTemplate(body);
+  }
+
+  @Put('templates/:id')
+  updateTemplate(@Param('id') id: string, @Body() body: any) {
+    return this.classesService.updateTemplate(id, body);
+  }
+
+  @Delete('templates/:id')
+  deleteTemplate(@Param('id') id: string) {
+    return this.classesService.deleteTemplate(id);
   }
 }
 

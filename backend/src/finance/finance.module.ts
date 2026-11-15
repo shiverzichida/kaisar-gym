@@ -164,8 +164,23 @@ export class FinanceService {
     });
   }
 
-  async getAnalyticsAndReports(txLimit?: number) {
+  async getAnalyticsAndReports(txLimit?: number, startDate?: string, endDate?: string) {
     const recentTxLimit = Math.min(Math.max(1, Number(txLimit) || 50), 200);
+    const dateFilter: { gte?: Date; lte?: Date } = {};
+    if (startDate) {
+      const s = new Date(`${startDate}T00:00:00+07:00`);
+      if (!Number.isNaN(s.getTime())) dateFilter.gte = s;
+    }
+    if (endDate) {
+      const e = new Date(`${endDate}T23:59:59.999+07:00`);
+      if (!Number.isNaN(e.getTime())) dateFilter.lte = e;
+    }
+    const hasDateFilter = Boolean(dateFilter.gte || dateFilter.lte);
+    const txWhere: any = {
+      paymentStatus: { not: 'VOID' },
+      ...(hasDateFilter ? { createdAt: dateFilter } : {}),
+    };
+    const expenseWhere: any = hasDateFilter ? { createdAt: dateFilter } : {};
 
     const [
       txAgg,
@@ -176,23 +191,25 @@ export class FinanceService {
       auditLogs,
       announcements,
       transactions,
+      expensesList,
     ] = await Promise.all([
       this.prisma.posTransaction.aggregate({
-        where: { paymentStatus: { not: 'VOID' } },
+        where: txWhere,
         _sum: { grandTotal: true },
         _count: { _all: true },
       }),
       this.prisma.posTransaction.groupBy({
         by: ['paymentMethod'],
-        where: { paymentStatus: { not: 'VOID' } },
+        where: txWhere,
         _sum: { grandTotal: true },
       }),
       this.prisma.posTransactionItem.groupBy({
         by: ['itemType'],
-        where: { transaction: { paymentStatus: { not: 'VOID' } } },
+        where: { transaction: txWhere },
         _sum: { totalPrice: true },
       }),
       this.prisma.expense.aggregate({
+        where: expenseWhere,
         _sum: { amount: true },
       }),
       this.prisma.member.groupBy({
@@ -202,13 +219,18 @@ export class FinanceService {
       this.prisma.auditLog.findMany({ orderBy: { createdAt: 'desc' }, take: 50 }),
       this.prisma.announcement.findMany({ where: { isActive: true }, orderBy: { createdAt: 'desc' } }),
       this.prisma.posTransaction.findMany({
-        where: { paymentStatus: { not: 'VOID' } },
+        where: txWhere,
         include: {
           items: true,
           member: { select: { id: true, memberCode: true, fullName: true } },
         },
         orderBy: { createdAt: 'desc' },
         take: recentTxLimit,
+      }),
+      this.prisma.expense.findMany({
+        where: expenseWhere,
+        orderBy: { createdAt: 'desc' },
+        take: 200,
       }),
     ]);
 
@@ -289,6 +311,7 @@ export class FinanceService {
       auditLogs,
       announcements,
       transactions,
+      expensesList,
     };
   }
 }
@@ -328,8 +351,16 @@ export class FinanceController {
   }
 
   @Get('analytics')
-  getAnalytics(@Query('txLimit') txLimit?: string) {
-    return this.financeService.getAnalyticsAndReports(txLimit ? Number(txLimit) : undefined);
+  getAnalytics(
+    @Query('txLimit') txLimit?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.financeService.getAnalyticsAndReports(
+      txLimit ? Number(txLimit) : undefined,
+      startDate,
+      endDate,
+    );
   }
 }
 

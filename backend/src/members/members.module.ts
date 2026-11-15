@@ -1,4 +1,5 @@
 import { BadRequestException, Body, Controller, Delete, Get, Injectable, Module, NotFoundException, Param, Patch, Post, Query } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -803,6 +804,85 @@ export class MembersService {
       })),
     };
   }
+
+  @Cron('5 0 * * *', { timeZone: 'Asia/Jakarta' })
+  async runLifecycleSync() {
+    const now = new Date();
+    let expiredSubs = 0;
+    let inactivatedMembers = 0;
+    let resumedLeaves = 0;
+
+    // 1. Auto-resume leaves whose endDate has passed
+    const endedLeaves = await this.prisma.memberLeave.findMany({
+      where: { status: 'ACTIVE', endDate: { lt: now } },
+      include: { subscription: true },
+    });
+
+    for (const leave of endedLeaves) {
+      await this.prisma.memberLeave.update({
+        where: { id: leave.id },
+        data: { status: 'COMPLETED' },
+      });
+      resumedLeaves++;
+
+      if (leave.subscriptionId && leave.subscription) {
+        const subStillValid = new Date(leave.subscription.endDate) >= now;
+        await this.prisma.memberSubscription.update({
+          where: { id: leave.subscriptionId },
+          data: { status: subStillValid ? 'ACTIVE' : 'EXPIRED' },
+        });
+        await this.prisma.member.update({
+          where: { id: leave.memberId },
+          data: {
+            status: subStillValid ? 'ACTIVE' : 'INACTIVE',
+            parkingActive: subStillValid,
+          },
+        });
+      }
+    }
+
+    // 2. Auto-expire active subscriptions past endDate
+    const overdueSubs = await this.prisma.memberSubscription.findMany({
+      where: { status: 'ACTIVE', endDate: { lt: now } },
+      select: { id: true, memberId: true },
+    });
+
+    if (overdueSubs.length > 0) {
+      const subIds = overdueSubs.map((s) => s.id);
+      const res = await this.prisma.memberSubscription.updateMany({
+        where: { id: { in: subIds } },
+        data: { status: 'EXPIRED' },
+      });
+      expiredSubs = res.count;
+
+      const memberIds = Array.from(new Set(overdueSubs.map((s) => s.memberId)));
+      for (const memberId of memberIds) {
+        const activeSub = await this.prisma.memberSubscription.findFirst({
+          where: { memberId, status: 'ACTIVE', endDate: { gte: now } },
+          select: { id: true },
+        });
+        const member = await this.prisma.member.findUnique({
+          where: { id: memberId },
+          include: { groupMembership: { select: { status: true } } },
+        });
+        if (!activeSub && member && member.status === 'ACTIVE' && member.groupMembership?.status !== 'ACTIVE') {
+          await this.prisma.member.update({
+            where: { id: memberId },
+            data: { status: 'INACTIVE', parkingActive: false },
+          });
+          inactivatedMembers++;
+        }
+      }
+    }
+
+    return {
+      success: true,
+      ranAt: now.toISOString(),
+      expiredSubscriptions: expiredSubs,
+      inactivatedMembers,
+      resumedLeaves,
+    };
+  }
 }
 
 @Controller('members')
@@ -832,6 +912,11 @@ export class MembersController {
   @Post('sync-users')
   syncUsers() {
     return this.membersService.syncUsers();
+  }
+
+  @Post('lifecycle-sync')
+  runLifecycleSync() {
+    return this.membersService.runLifecycleSync();
   }
 
   @Post('reset-passwords')

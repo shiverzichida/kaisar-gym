@@ -12,6 +12,7 @@ import { TrainersModule } from './trainers/trainers.module';
 import { ClassesModule } from './classes/classes.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { FinanceModule } from './finance/finance.module';
+import { MarketingModule } from './marketing/marketing.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { FinanceModule } from './finance/finance.module';
     ClassesModule,
     AttendanceModule,
     FinanceModule,
+    MarketingModule,
   ],
   providers: [
     {
