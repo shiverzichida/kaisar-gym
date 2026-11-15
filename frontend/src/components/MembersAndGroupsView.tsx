@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import TableScrollWrapper from '@/components/TableScrollWrapper';
 import { apiFetch, formatDateId } from '@/lib/api';
+import { confirmDelete } from '@/lib/swal';
 import { useToast } from '@/context/ToastContext';
 import { scanKtpWithOcr } from '@/lib/ktpOcr';
 import {
@@ -165,9 +166,11 @@ export default function MembersAndGroupsView({
 
   // Single Delete Member
   const handleDeleteMember = async (member: any) => {
-    if (!window.confirm(`Yakin ingin menghapus member ${member.memberCode} (${member.fullName}) dari sistem?`)) {
-      return;
-    }
+    const confirmed = await confirmDelete({
+      title: 'Hapus Member?',
+      text: `Yakin ingin menghapus member ${member.memberCode} (${member.fullName}) dari sistem?`,
+    });
+    if (!confirmed) return;
     try {
       await apiFetch(`/members/${member.id}`, { method: 'DELETE' });
       showSuccess(`Member ${member.memberCode} berhasil dihapus dari sistem.`, 'Hapus Member');
@@ -180,7 +183,12 @@ export default function MembersAndGroupsView({
   // Bulk Delete
   const handleBulkDelete = async () => {
     if (selectedIds.length === 0) return;
-    if (!window.confirm(`Hapus ${selectedIds.length} member yang dipilih secara permanen?`)) return;
+    const confirmed = await confirmDelete({
+      title: 'Hapus Massal Member?',
+      text: `Hapus ${selectedIds.length} member yang dipilih secara permanen?`,
+      confirmText: `Ya, Hapus ${selectedIds.length} Member`,
+    });
+    if (!confirmed) return;
     setActionLoading(true);
     try {
       const res = await apiFetch('/members/bulk-delete', {

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import AppShell from '@/components/AppShell';
 import TableScrollWrapper from '@/components/TableScrollWrapper';
 import { apiFetch, formatRp, formatDateId } from '@/lib/api';
+import { confirmDelete, confirmUpdate } from '@/lib/swal';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import {
@@ -192,6 +193,19 @@ export default function TrainersPage() {
     status: 'PAID' | 'REJECTED' | 'APPROVED_MANAGER'
   ) => {
     const reqId = typeof req === 'string' ? req : req.id;
+    const actionLabel =
+      status === 'PAID'
+        ? 'tandai LUNAS & transfer komisi PT'
+        : status === 'REJECTED'
+        ? 'tolak pengajuan klaim gaji PT'
+        : 'setujui pengajuan gaji PT';
+    const confirmed = await confirmUpdate({
+      title: 'Konfirmasi Status Payroll',
+      text: `Yakin ingin ${actionLabel} ini?`,
+      confirmText: status === 'REJECTED' ? 'Ya, Tolak' : 'Ya, Proses',
+    });
+    if (!confirmed) return;
+
     setProcessingPayoutId(reqId);
 
     // Optimistic UI update so badge flips immediately to PAID (LUNAS / SUDAH DITRANSFER)
@@ -323,7 +337,11 @@ export default function TrainersPage() {
 
   // Delete Trainer
   const handleDeleteTrainer = async (tr: Trainer) => {
-    if (!confirm(`Apakah Anda yakin ingin menghapus trainer ${tr.fullName} (${tr.code})?`)) return;
+    const confirmed = await confirmDelete({
+      title: 'Hapus Personal Trainer?',
+      text: `Apakah Anda yakin ingin menghapus trainer ${tr.fullName} (${tr.code})?`,
+    });
+    if (!confirmed) return;
     try {
       await apiFetch(`/trainers/${tr.id}`, { method: 'DELETE' });
       showSuccess(`Trainer ${tr.fullName} berhasil dihapus!`, 'Terhapus');

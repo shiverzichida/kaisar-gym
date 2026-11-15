@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import AppShell from '@/components/AppShell';
 import { apiFetch, formatRp } from '@/lib/api';
+import { confirmUpdate } from '@/lib/swal';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import {
@@ -126,6 +127,12 @@ export default function EditTrainerPage({ params }: { params: { id: string } }) 
       setError('Nama Lengkap dan Nomor Telepon wajib diisi!');
       return;
     }
+
+    const confirmed = await confirmUpdate({
+      title: 'Simpan Perubahan Trainer?',
+      text: `Perbarui data trainer ${form.code} (${form.fullName})?`,
+    });
+    if (!confirmed) return;
 
     setSaving(true);
     setError('');

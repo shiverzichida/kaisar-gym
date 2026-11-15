@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import AppShell from '@/components/AppShell';
 import { apiFetch, formatRp, formatDateId } from '@/lib/api';
+import { confirmUpdate } from '@/lib/swal';
 import { useToast } from '@/context/ToastContext';
 import {
   ArrowLeft,
@@ -94,6 +95,11 @@ export default function EditPtAssignmentPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const confirmed = await confirmUpdate({
+      title: 'Simpan Perubahan Kontrak PT?',
+      text: 'Perbarui data penugasan & sesi Personal Trainer ini?',
+    });
+    if (!confirmed) return;
     setSaving(true);
     try {
       await apiFetch(`/trainers/assignments/${id}`, {

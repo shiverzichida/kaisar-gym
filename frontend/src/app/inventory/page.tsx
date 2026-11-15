@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import AppShell from '@/components/AppShell';
 import TableScrollWrapper from '@/components/TableScrollWrapper';
 import { apiFetch, formatRp, formatDateId } from '@/lib/api';
+import { promptInput } from '@/lib/swal';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import {
@@ -46,10 +47,21 @@ export default function InventoryPage() {
   }, [loadData]);
 
   const handleStockOpname = async (prd: any) => {
-    const input = window.prompt(
-      `Masukkan jumlah stok fisik aktual untuk "${prd.name}" (Stok sistem saat ini: ${prd.stock}):`,
-      String(prd.stock),
-    );
+    const input = await promptInput({
+      title: `Stock Opname: ${prd.name}`,
+      text: `Stok sistem saat ini: ${prd.stock} pcs.`,
+      inputLabel: 'Jumlah stok fisik aktual',
+      inputValue: String(prd.stock),
+      inputType: 'number',
+      confirmText: 'Simpan Stok',
+      validator: (val) => {
+        const num = Number(val);
+        if (val === '' || !Number.isInteger(num) || num < 0) {
+          return 'Stok harus berupa bilangan bulat >= 0';
+        }
+        return null;
+      },
+    });
     if (input === null) return;
     try {
       await apiFetch(`/finance/products/${prd.id}/opname`, {

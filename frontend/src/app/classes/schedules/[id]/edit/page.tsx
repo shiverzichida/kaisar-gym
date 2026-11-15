@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import AppShell from '@/components/AppShell';
 import { apiFetch, formatDateId } from '@/lib/api';
+import { confirmUpdate } from '@/lib/swal';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import {
@@ -94,6 +95,12 @@ export default function EditClassSchedulePage({ params }: { params: { id: string
       setError('Pilih kelas studio!');
       return;
     }
+
+    const confirmed = await confirmUpdate({
+      title: 'Simpan Perubahan Jadwal?',
+      text: 'Perbarui jadwal kelas studio ini?',
+    });
+    if (!confirmed) return;
 
     setSaving(true);
     setError('');

@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import AppShell from '@/components/AppShell';
 import { apiFetch, formatRp, formatDateId } from '@/lib/api';
+import { promptInput } from '@/lib/swal';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import {
@@ -50,10 +51,21 @@ export default function ShiftPage() {
   }, [loadData]);
 
   const handleOpenShift = async () => {
-    const floatInput = window.prompt(
-      'Masukkan modal kas awal laci (Starting Cash Float):',
-      '500000',
-    );
+    const floatInput = await promptInput({
+      title: 'Buka Shift Kasir Baru',
+      inputLabel: 'Modal kas awal laci (Starting Cash Float)',
+      inputValue: '500000',
+      inputType: 'number',
+      confirmText: 'Buka Shift',
+      icon: 'info',
+      validator: (val) => {
+        const num = Number(val);
+        if (val === '' || !Number.isFinite(num) || num < 0) {
+          return 'Nominal modal awal harus >= 0';
+        }
+        return null;
+      },
+    });
     if (floatInput === null) return;
     try {
       await apiFetch('/finance/shifts/open', {
@@ -75,12 +87,23 @@ export default function ShiftPage() {
   const handleCloseShift = async () => {
     const shift = financeData?.activeShift;
     if (!shift) return;
-    const actual = window.prompt(
-      `Closing Shift Kasir (${shift.cashierName}).\nSaldo tunai seharusnya di laci: ${formatRp(
-        shift.expectedEndingCash,
-      )}.\nMasukkan jumlah uang fisik aktual di laci:`,
-      String(shift.expectedEndingCash),
-    );
+    const actual = await promptInput({
+      title: `Closing Shift Kasir (${shift.cashierName})`,
+      text: `Saldo tunai seharusnya di laci: ${formatRp(shift.expectedEndingCash)}.`,
+      inputLabel: 'Jumlah uang fisik aktual di laci',
+      inputValue: String(shift.expectedEndingCash),
+      inputType: 'number',
+      confirmText: 'Tutup & Rekonsiliasi Shift',
+      confirmColor: '#e11d48',
+      icon: 'warning',
+      validator: (val) => {
+        const num = Number(val);
+        if (val === '' || !Number.isFinite(num) || num < 0) {
+          return 'Nominal kas aktual harus >= 0';
+        }
+        return null;
+      },
+    });
     if (actual === null) return;
     try {
       await apiFetch(`/finance/shifts/${shift.id}/close`, {

@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import AppShell from '@/components/AppShell';
 import TableScrollWrapper from '@/components/TableScrollWrapper';
 import { apiFetch, formatRp, primeApiCache } from '@/lib/api';
+import { confirmDelete, confirmUpdate } from '@/lib/swal';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import {
@@ -189,7 +190,11 @@ function PackagesContent() {
         ? 'paket PT'
         : 'produk/suplemen';
 
-    if (!window.confirm(`Yakin ingin menghapus ${itemTypeName} "${item.name}"?`)) {
+    const confirmed = await confirmDelete({
+      title: 'Hapus Item Katalog?',
+      text: `Yakin ingin menghapus ${itemTypeName} "${item.name}"?`,
+    });
+    if (!confirmed) {
       return;
     }
 
@@ -214,6 +219,13 @@ function PackagesContent() {
   // Submit Form (Add or Edit)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (modalMode !== 'ADD') {
+      const confirmed = await confirmUpdate({
+        title: 'Simpan Perubahan?',
+        text: `Perbarui data "${editingItem?.name || 'item'}" di katalog?`,
+      });
+      if (!confirmed) return;
+    }
     setSubmitting(true);
     try {
       if (activeTab === 'MEMBERSHIP') {

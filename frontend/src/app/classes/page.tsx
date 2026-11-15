@@ -5,6 +5,7 @@ import Link from 'next/link';
 import AppShell from '@/components/AppShell';
 import TableScrollWrapper from '@/components/TableScrollWrapper';
 import { apiFetch, formatDateId } from '@/lib/api';
+import { confirmDelete, confirmUpdate } from '@/lib/swal';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import {
@@ -466,7 +467,11 @@ export default function ClassesPage() {
 
   // Delete Single Schedule
   const handleDeleteSchedule = async (id: string) => {
-    if (!confirm('Apakah Anda yakin ingin menghapus jadwal kelas ini?')) return;
+    const confirmed = await confirmDelete({
+      title: 'Hapus Jadwal Kelas?',
+      text: 'Apakah Anda yakin ingin menghapus jadwal kelas ini?',
+    });
+    if (!confirmed) return;
     try {
       await apiFetch(`/classes/schedules/${id}`, { method: 'DELETE' });
       showSuccess('Jadwal kelas berhasil dihapus!', 'Terhapus');
@@ -479,7 +484,12 @@ export default function ClassesPage() {
   // Batch Delete
   const handleBatchDelete = async () => {
     if (selectedScheduleIds.length === 0) return;
-    if (!confirm(`Hapus ${selectedScheduleIds.length} jadwal terpilih?`)) return;
+    const confirmed = await confirmDelete({
+      title: 'Hapus Massal Jadwal?',
+      text: `Hapus ${selectedScheduleIds.length} jadwal kelas terpilih?`,
+      confirmText: `Ya, Hapus ${selectedScheduleIds.length} Jadwal`,
+    });
+    if (!confirmed) return;
     try {
       await apiFetch('/classes/schedules/batch-delete', {
         method: 'POST',
@@ -541,6 +551,11 @@ export default function ClassesPage() {
   const handleSubmitEditSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingSchedule) return;
+    const confirmed = await confirmUpdate({
+      title: 'Simpan Perubahan Jadwal?',
+      text: 'Perbarui jadwal kelas studio ini?',
+    });
+    if (!confirmed) return;
     try {
       await apiFetch(`/classes/schedules/${editingSchedule.id}`, {
         method: 'PUT',

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import AppShell from '@/components/AppShell';
 import { apiFetch, formatRp, getCachedApiData } from '@/lib/api';
+import { confirmUpdate } from '@/lib/swal';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import {
@@ -177,6 +178,12 @@ function EditPackageContent({ id }: { id: string }) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (saving || isSuccess) return;
+
+    const confirmed = await confirmUpdate({
+      title: 'Simpan Perubahan Katalog?',
+      text: 'Perbarui data paket/produk ini?',
+    });
+    if (!confirmed) return;
 
     setSaving(true);
     setError('');

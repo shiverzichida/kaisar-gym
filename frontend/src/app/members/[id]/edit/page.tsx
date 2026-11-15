@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import AppShell from '@/components/AppShell';
 import { apiFetch, formatDateId, formatRp } from '@/lib/api';
+import { confirmUpdate } from '@/lib/swal';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { scanKtpWithOcr } from '@/lib/ktpOcr';
@@ -183,6 +184,12 @@ export default function EditMemberPage({ params }: { params: { id: string } }) {
       setError('Nama Lengkap dan Nomor Telepon wajib diisi!');
       return;
     }
+
+    const confirmed = await confirmUpdate({
+      title: 'Simpan Perubahan Member?',
+      text: `Perbarui data member ${formData.memberCode} (${formData.fullName})?`,
+    });
+    if (!confirmed) return;
 
     setSaving(true);
     setError('');

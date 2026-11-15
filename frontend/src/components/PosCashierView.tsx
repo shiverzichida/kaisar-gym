@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import OfficialReceiptModal from '@/components/OfficialReceiptModal';
 import { apiFetch, formatRp, formatDateId } from '@/lib/api';
+import { promptInput } from '@/lib/swal';
 import { useToast } from '@/context/ToastContext';
 import {
   ShoppingCart,
@@ -144,7 +145,16 @@ export default function PosCashierView({
   };
 
   const handleVoid = async (trxId: string, invoiceNum: string) => {
-    const reason = window.prompt(`Masukkan alasan VOID untuk nota ${invoiceNum}:`, 'Salah input metode pembayaran');
+    const reason = await promptInput({
+      title: `VOID Nota ${invoiceNum}?`,
+      text: 'Transaksi akan dibatalkan dan stok produk retail akan dikembalikan.',
+      inputLabel: 'Alasan VOID',
+      inputValue: 'Salah input metode pembayaran',
+      placeholder: 'Masukkan alasan VOID...',
+      confirmText: 'Ya, VOID Nota!',
+      confirmColor: '#e11d48',
+      icon: 'warning',
+    });
     if (!reason) return;
     try {
       await apiFetch(`/pos/transactions/${trxId}/void`, {
